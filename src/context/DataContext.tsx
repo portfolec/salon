@@ -136,9 +136,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: b.status as Booking['status'] } : x))
           } catch (e) { console.warn('[Realtime] UPDATE parse error', e) }
         })
-        .subscribe((_status, err) => {
-          if (err) console.warn('[Realtime] subscription error (non-fatal):', err)
-        })
+        .subscribe(() => { /* realtime connected */ })
     } catch (e) {
       console.warn('[Realtime] failed to set up channel (non-fatal):', e)
     }

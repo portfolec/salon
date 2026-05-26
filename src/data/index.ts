@@ -32,7 +32,7 @@ export interface SiteContent {
   hoursSaturday: string
   telegramUrl: string
   instagramUrl: string
-  yandexMetrikaId: string
+  yandexMetrikaId?: string
 }
 
 export interface Booking {
