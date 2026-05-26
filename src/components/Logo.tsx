@@ -4,7 +4,7 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'md', dark = false }: LogoProps) {
-  const scales = { sm: 0.65, md: 1.2, lg: 1.7 }
+  const scales = { sm: 0.65, md: 0.85, lg: 1.3 }
   const s = scales[size]
   const color = dark ? '#ffffff' : '#1a1a1a'
   const accentColor = '#8b6b4a'
