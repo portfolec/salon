@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "@fontsource/playfair-display/400.css";
+@import "@fontsource/playfair-display/400-italic.css";
+@import "@fontsource/playfair-display/600.css";
+@import "@fontsource/cormorant/700.css";
+@import "@fontsource/outfit/300.css";
+@import "@fontsource/outfit/400.css";
+@import "@fontsource/outfit/500.css";
+@import "@fontsource/outfit/600.css";
+
+@theme {
+  --color-ink: #1a1a1a;
+  --color-ink-secondary: #6b6b6b;
+  --color-ink-tertiary: #9a9a9a;
+  --color-surface: #f5f5f3;
+  --color-surface-elevated: #eeede9;
+  --color-accent: #8b6b4a;
+  --color-accent-light: #a68560;
+  --color-white: #ffffff;
+
+  --font-display: "Playfair Display", Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+
+  --radius-card: 4px;
+  --radius-btn: 2px;
+  --radius-input: 2px;
+}
+
+/* ── Emil easing curves ─────────────────────────────────────── */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── Pressable elements – Emil active feedback ──────────────── */
+@media (hover: hover) and (pointer: fine) {
+  button:not([disabled]):hover,
+  [role="button"]:not([disabled]):hover {
+    transition-duration: 150ms;
+  }
+}
+
+button:not([disabled]):active,
+[role="button"]:not([disabled]):active,
+a:active {
+  transform: scale(0.97);
+  transition: transform 100ms var(--ease-out);
+}
+
+/* ── Respect prefers-reduced-motion ─────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-elevated);
+  border-radius: 3px;
+}
