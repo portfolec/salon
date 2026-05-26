@@ -229,6 +229,7 @@ const DEFAULT_CONTENT: SiteContent = {
   hoursSaturday: '10:00 - 19:00',
   telegramUrl: 'https://t.me/stilnyaktsent',
   instagramUrl: 'https://instagram.com/stilnyaktsent',
+  yandexMetrikaId: '',
 }
 
 export async function fetchContent(): Promise<SiteContent> {
