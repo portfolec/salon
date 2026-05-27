@@ -2,6 +2,7 @@ import {
   createContext, useContext, useState,
   useEffect, useCallback, ReactNode,
 } from 'react'
+import emailjs from '@emailjs/browser'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import * as api from '../lib/api'
 import type { Service, Master, SiteContent, Booking } from '../data'
@@ -17,11 +18,14 @@ const DEFAULT_CONTENT: SiteContent = {
   heroSubtitle: 'Премиальный салон: стрижки, маникюр, педикюр, ресницы, брови, массаж и эпиляция.',
   address: 'Москва, ул. Профсоюзная, 56к2',
   phone: '+7 (495) 123-45-67',
-  hoursWeekday: '10:00 - 20:00',
-  hoursSaturday: '10:00 - 19:00',
+  hours: 'Ежедневно 10:00 - 20:00',
   telegramUrl: 'https://t.me/stilnyaktsent',
   instagramUrl: 'https://instagram.com/stilnyaktsent',
   yandexMetrikaId: '',
+  emailjsServiceId: '',
+  emailjsTemplateId: '',
+  emailjsPublicKey: '',
+  notificationEmail: '',
 }
 
 // ─── localStorage fallback (when Supabase not configured) ─────────────────────
@@ -209,10 +213,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ── BOOKINGS ──────────────────────────────────────────────────────────────
   const addBooking = async (b: Omit<Booking, 'id' | 'createdAt'>) => {
     if (isDb) {
-      await api.createBooking(b) // realtime will add it to state
+      await api.createBooking(b)
     } else {
       const nb: Booking = { ...b, id: Date.now().toString(), createdAt: new Date().toISOString(), status: 'new' }
       setBookings(prev => { const n = [nb, ...prev]; saveLS('bookings', n); return n })
+    }
+
+    // ── EmailJS notification (fire-and-forget) ───────────────────
+    const { emailjsServiceId, emailjsTemplateId, emailjsPublicKey, notificationEmail } = content
+    if (emailjsServiceId && emailjsTemplateId && emailjsPublicKey && notificationEmail) {
+      emailjs.send(
+        emailjsServiceId,
+        emailjsTemplateId,
+        {
+          to_email:     notificationEmail,
+          client_name:  b.name,
+          client_phone: b.phone,
+          service:      b.service,
+          master:       b.master ?? 'Любой мастер',
+          date:         b.date,
+          time:         b.time,
+          comment:      b.comment || '—',
+        },
+        emailjsPublicKey,
+      ).catch(err => console.warn('[EmailJS] notification failed (non-fatal):', err))
     }
   }
 

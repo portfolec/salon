@@ -84,15 +84,7 @@ export default function Footer() {
             <ul className="flex flex-col gap-3">
               <li className="flex items-center gap-3 text-sm text-[rgba(255,255,255,0.55)]">
                 <Clock size={14} className="text-[var(--color-accent)] shrink-0" />
-                <span>Пн — Пт: {content.hoursWeekday}</span>
-              </li>
-              <li className="flex items-center gap-3 text-sm text-[rgba(255,255,255,0.55)]">
-                <Clock size={14} className="text-[var(--color-accent)] shrink-0" />
-                <span>Суббота: {content.hoursSaturday}</span>
-              </li>
-              <li className="flex items-center gap-3 text-sm text-[rgba(255,255,255,0.55)]">
-                <Clock size={14} className="text-[rgba(255,255,255,0.2)] shrink-0" />
-                <span className="text-[rgba(255,255,255,0.3)]">Воскресенье: выходной</span>
+                <span>{content.hours}</span>
               </li>
             </ul>
           </div>
@@ -105,9 +97,6 @@ export default function Footer() {
           <p className="text-xs text-[rgba(255,255,255,0.25)]">
             &copy; {new Date().getFullYear()} Стильный Акцент. Все права защищены.
           </p>
-          <a href="#admin" className="text-xs text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.35)] transition-colors">
-            Панель управления
-          </a>
         </div>
       </div>
     </footer>

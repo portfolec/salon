@@ -46,9 +46,7 @@ export default function Contacts() {
                 <div>
                   <div className="text-xs font-medium tracking-wide uppercase text-[var(--color-ink-tertiary)] mb-1">Режим работы</div>
                   <div className="space-y-1 text-[var(--color-ink)]">
-                    <p>Пн - Пт: {content.hoursWeekday}</p>
-                    <p>Сб: {content.hoursSaturday}</p>
-                    <p className="text-[var(--color-ink-secondary)]">Вс: выходной</p>
+                    <p>{content.hours}</p>
                   </div>
                 </div>
               </div>

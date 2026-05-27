@@ -51,8 +51,7 @@ export default function AdminContent() {
             {([
               { label: 'Адрес',           field: 'address',      placeholder: 'Москва, ул. ...' },
               { label: 'Телефон',         field: 'phone',        placeholder: '+7 (495) 123-45-67' },
-              { label: 'Часы работы Пн-Пт', field: 'hoursWeekday', placeholder: '10:00 - 20:00' },
-              { label: 'Часы работы Сб',  field: 'hoursSaturday', placeholder: '10:00 - 19:00' },
+              { label: 'Режим работы',       field: 'hours',        placeholder: 'Ежедневно 10:00 - 20:00' },
               { label: 'Ссылка Telegram', field: 'telegramUrl',  placeholder: 'https://t.me/...' },
               { label: 'Ссылка Instagram',field: 'instagramUrl', placeholder: 'https://instagram.com/...' },
             ] as { label: string; field: keyof SiteContent; placeholder: string }[]).map(({ label, field, placeholder }) => (

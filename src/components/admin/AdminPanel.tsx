@@ -5,20 +5,22 @@ import AdminServices from './AdminServices'
 import AdminMasters from './AdminMasters'
 import AdminContent from './AdminContent'
 import AdminSchedule from './AdminSchedule'
+import AdminNotifications from './AdminNotifications'
 import Logo from '../Logo'
 import {
   CalendarBlank, Scissors, UsersThree, TextT,
-  SignOut, List, X, ArrowSquareOut, Clock,
+  SignOut, List, X, ArrowSquareOut, Clock, Bell,
 } from '@phosphor-icons/react'
 
-type Tab = 'bookings' | 'services' | 'masters' | 'schedule' | 'content'
+type Tab = 'bookings' | 'services' | 'masters' | 'schedule' | 'content' | 'notifications'
 
 const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
-  { id: 'bookings', label: 'Заявки',   Icon: CalendarBlank },
-  { id: 'services', label: 'Услуги',   Icon: Scissors },
-  { id: 'masters',  label: 'Мастера',  Icon: UsersThree },
-  { id: 'schedule', label: 'График',   Icon: Clock },
-  { id: 'content',  label: 'Контент',  Icon: TextT },
+  { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank },
+  { id: 'services',      label: 'Услуги',        Icon: Scissors },
+  { id: 'masters',       label: 'Мастера',       Icon: UsersThree },
+  { id: 'schedule',      label: 'График',        Icon: Clock },
+  { id: 'content',       label: 'Контент',       Icon: TextT },
+  { id: 'notifications', label: 'Уведомления',   Icon: Bell },
 ]
 
 interface AdminPanelProps {
@@ -111,11 +113,12 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
         {/* Content */}
         <main className="flex-1 p-6 lg:p-10 overflow-auto">
-          {activeTab === 'bookings' && <AdminBookings />}
-          {activeTab === 'services' && <AdminServices />}
-          {activeTab === 'masters'  && <AdminMasters />}
-          {activeTab === 'schedule' && <AdminSchedule />}
-          {activeTab === 'content'  && <AdminContent />}
+          {activeTab === 'bookings'      && <AdminBookings />}
+          {activeTab === 'services'      && <AdminServices />}
+          {activeTab === 'masters'       && <AdminMasters />}
+          {activeTab === 'schedule'      && <AdminSchedule />}
+          {activeTab === 'content'       && <AdminContent />}
+          {activeTab === 'notifications' && <AdminNotifications />}
         </main>
       </div>
     </div>

@@ -28,11 +28,14 @@ export interface SiteContent {
   heroSubtitle: string
   address: string
   phone: string
-  hoursWeekday: string
-  hoursSaturday: string
+  hours: string
   telegramUrl: string
   instagramUrl: string
   yandexMetrikaId?: string
+  emailjsServiceId?: string
+  emailjsTemplateId?: string
+  emailjsPublicKey?: string
+  notificationEmail?: string
 }
 
 export interface Booking {

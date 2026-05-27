@@ -225,11 +225,14 @@ const DEFAULT_CONTENT: SiteContent = {
   heroSubtitle: 'Премиальный салон: стрижки, маникюр, педикюр, ресницы, брови, массаж и эпиляция.',
   address: 'Москва, ул. Профсоюзная, 56к2',
   phone: '+7 (495) 123-45-67',
-  hoursWeekday: '10:00 - 20:00',
-  hoursSaturday: '10:00 - 19:00',
+  hours: 'Ежедневно 10:00 - 20:00',
   telegramUrl: 'https://t.me/stilnyaktsent',
   instagramUrl: 'https://instagram.com/stilnyaktsent',
   yandexMetrikaId: '',
+  emailjsServiceId: '',
+  emailjsTemplateId: '',
+  emailjsPublicKey: '',
+  notificationEmail: '',
 }
 
 export async function fetchContent(): Promise<SiteContent> {
