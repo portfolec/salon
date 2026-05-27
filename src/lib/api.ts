@@ -223,7 +223,7 @@ export async function updateBookingStatus(id: string, status: Booking['status'])
 const DEFAULT_CONTENT: SiteContent = {
   heroTitle: 'Красота в каждой детали',
   heroSubtitle: 'Премиальный салон: стрижки, маникюр, педикюр, ресницы, брови, массаж и эпиляция.',
-  address: 'Москва, ул. Профсоюзная, 56к2',
+  address: 'Ленинградская обл., г. Сланцы, ул. Кирова, 39',
   phone: '+7 (495) 123-45-67',
   hours: 'Ежедневно 10:00 - 20:00',
   telegramUrl: 'https://t.me/stilnyaktsent',

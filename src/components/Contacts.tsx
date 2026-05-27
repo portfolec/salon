@@ -77,7 +77,7 @@ export default function Contacts() {
             style={{ borderRadius: 'var(--radius-card)' }}
           >
             <iframe
-              src="https://yandex.ru/map-widget/v1/?ll=37.562080%2C55.684768&z=15&pt=37.562080%2C55.684768%2Cpm2rdm&l=map"
+              src="https://yandex.ru/map-widget/v1/?ll=28.087705%2C59.116668&z=17&pt=28.087705%2C59.116668%2Cpm2rdm&l=map"
               width="100%"
               height="100%"
               frameBorder="0"

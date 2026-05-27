@@ -91,22 +91,6 @@ export default function Hero({ onBooking }: HeroProps) {
           </motion.div>
         </div>
 
-        {/* Stats — each counter staggers in */}
-        <div className="grid grid-cols-3 gap-6 max-w-sm pt-6">
-          {[
-            { value: '8+', label: 'услуг' },
-            { value: '4', label: 'мастера' },
-            { value: '5 лет', label: 'на рынке' },
-          ].map((s, i) => (
-            <motion.div key={s.label}
-              initial={{ opacity: 0, y: reduce ? 0 : 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: EASE_OUT, delay: reduce ? 0 : 0.6 + i * 0.06 }}>
-              <div className="font-display text-2xl text-white">{s.value}</div>
-              <div className="text-xs text-[rgba(255,255,255,0.45)] mt-1">{s.label}</div>
-            </motion.div>
-          ))}
-        </div>
       </div>
     </section>
   )
