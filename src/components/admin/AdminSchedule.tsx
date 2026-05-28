@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus, Trash, FloppyDisk, CheckCircle, WarningCircle, CaretDown, CaretUp } from '@phosphor-icons/react'
 import { useData } from '../../context/DataContext'
 import * as api from '../../lib/api'
