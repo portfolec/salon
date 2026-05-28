@@ -59,6 +59,18 @@ CREATE TABLE IF NOT EXISTS master_schedule (
 );
 
 -- ----------------------------------------------------------
+-- MASTER SERVICE DAYS (какие услуги мастер делает в какой день)
+-- Если строк нет для пары master+service → услуга доступна все рабочие дни
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS master_service_days (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  master_id  UUID NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  UNIQUE (master_id, service_id, day_of_week)
+);
+
+-- ----------------------------------------------------------
 -- MASTER DAYS OFF (конкретные даты)
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS master_days_off (

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Plus, Trash, FloppyDisk, CheckCircle, WarningCircle, CaretDown, CaretUp } from '@phosphor-icons/react'
+import { Plus, Trash, FloppyDisk, CheckCircle, WarningCircle, CaretDown, CaretUp, Info } from '@phosphor-icons/react'
 import { useData } from '../../context/DataContext'
 import * as api from '../../lib/api'
 import type { ScheduleDay, DayOff } from '../../lib/api'
@@ -19,52 +19,62 @@ const DEFAULT_SCHEDULE: ScheduleDay[] = DAYS_FULL.map((_, i) => ({
 
 type Toast = { type: 'success' | 'error'; message: string } | null
 
-// ── per-master schedule cache ──────────────────────────────────
-type MasterData = { schedule: ScheduleDay[]; daysOff: DayOff[]; loaded: boolean }
+// per-master data cache
+type MasterData = {
+  schedule: ScheduleDay[]
+  daysOff: DayOff[]
+  // serviceId → Set of dayOfWeek numbers the master does this service
+  // empty Set = no restriction (available all working days)
+  serviceDays: Record<string, Set<number>>
+  loaded: boolean
+}
 type Cache = Record<string, MasterData>
 
 function emptyData(): MasterData {
-  return { schedule: DEFAULT_SCHEDULE.map(d => ({ ...d })), daysOff: [], loaded: false }
+  return { schedule: DEFAULT_SCHEDULE.map(d => ({ ...d })), daysOff: [], serviceDays: {}, loaded: false }
 }
 
 export default function AdminSchedule() {
   const { masters, services, isDb } = useData()
 
-  const [cache, setCache]           = useState<Cache>({})
-  const [activeMaster, setActive]   = useState<string | null>(null)
-  const [saving, setSaving]         = useState(false)
-  const [toast, setToast]           = useState<Toast>(null)
-  const [newDayOff, setNewDayOff]   = useState('')
-  const [newReason, setNewReason]   = useState('')
+  const [cache, setCache]         = useState<Cache>({})
+  const [activeMaster, setActive] = useState<string | null>(null)
+  const [saving, setSaving]       = useState(false)
+  const [savingSvc, setSavingSvc] = useState(false)
+  const [toast, setToast]         = useState<Toast>(null)
+  const [newDayOff, setNewDayOff] = useState('')
+  const [newReason, setNewReason] = useState('')
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message })
     setTimeout(() => setToast(null), 3000)
   }
 
-  // load schedule for a master (once)
+  // Load schedule + service-days for a master (once)
   const loadMaster = useCallback(async (mid: string) => {
     if (!isDb || cache[mid]?.loaded) return
     try {
-      const [sched, offs] = await Promise.all([api.fetchSchedule(mid), api.fetchDaysOff(mid)])
+      const [sched, offs, svcDays] = await Promise.all([
+        api.fetchSchedule(mid),
+        api.fetchDaysOff(mid),
+        api.fetchAllServiceDays(mid),
+      ])
       const filled = DEFAULT_SCHEDULE.map(d => {
         const found = sched.find(s => s.dayOfWeek === d.dayOfWeek)
         return found ? { ...d, ...found } : { ...d, active: false }
       })
-      setCache(prev => ({ ...prev, [mid]: { schedule: filled, daysOff: offs, loaded: true } }))
+      setCache(prev => ({ ...prev, [mid]: { schedule: filled, daysOff: offs, serviceDays: svcDays, loaded: true } }))
     } catch {
       showToast('error', 'Ошибка загрузки расписания')
     }
   }, [isDb, cache])
 
-  // open / close master panel
   const toggleMaster = (mid: string) => {
     if (activeMaster === mid) { setActive(null); return }
     setActive(mid)
     loadMaster(mid)
   }
 
-  // helpers to mutate cache for active master
   const setSchedule = (mid: string, fn: (s: ScheduleDay[]) => ScheduleDay[]) =>
     setCache(prev => ({ ...prev, [mid]: { ...(prev[mid] ?? emptyData()), schedule: fn((prev[mid] ?? emptyData()).schedule) } }))
 
@@ -76,6 +86,32 @@ export default function AdminSchedule() {
       showToast('success', 'Расписание сохранено')
     } catch { showToast('error', 'Ошибка сохранения') }
     finally { setSaving(false) }
+  }
+
+  // Toggle a day for a specific service
+  const toggleServiceDay = (mid: string, serviceId: string, dow: number) => {
+    setCache(prev => {
+      const d = prev[mid] ?? emptyData()
+      const current = new Set(d.serviceDays[serviceId] ?? [])
+      if (current.has(dow)) current.delete(dow)
+      else current.add(dow)
+      return { ...prev, [mid]: { ...d, serviceDays: { ...d.serviceDays, [serviceId]: current } } }
+    })
+  }
+
+  const handleSaveServiceDays = async (mid: string) => {
+    const data = cache[mid]; if (!data) return
+    const master = masters.find(m => m.id === mid); if (!master) return
+    setSavingSvc(true)
+    try {
+      await Promise.all(
+        master.services.map(sid =>
+          api.saveServiceDays(mid, sid, data.serviceDays[sid] ?? new Set())
+        )
+      )
+      showToast('success', 'Расписание по услугам сохранено')
+    } catch { showToast('error', 'Ошибка сохранения') }
+    finally { setSavingSvc(false) }
   }
 
   const handleAddDayOff = async (mid: string) => {
@@ -97,12 +133,18 @@ export default function AdminSchedule() {
     } catch { showToast('error', 'Ошибка удаления') }
   }
 
-  // group masters by role
-  const groups = masters.reduce<Record<string, typeof masters>>((acc, m) => {
-    const key = m.role || 'Другие'
-    ;(acc[key] = acc[key] ?? []).push(m)
-    return acc
-  }, {})
+  // Group masters by services
+  const groups: Record<string, typeof masters> = {}
+  const assigned = new Set<string>()
+  services.forEach(svc => {
+    const svcMasters = masters.filter(m => m.services.includes(svc.id))
+    if (svcMasters.length > 0) {
+      groups[svc.name] = svcMasters
+      svcMasters.forEach(m => assigned.add(m.id))
+    }
+  })
+  const unassigned = masters.filter(m => !assigned.has(m.id))
+  if (unassigned.length > 0) groups['Другие'] = unassigned
 
   if (!isDb) {
     return (
@@ -131,49 +173,43 @@ export default function AdminSchedule() {
 
       <div>
         <h2 className="text-xl font-semibold text-white mb-1">График работы</h2>
-        <p className="text-sm text-zinc-500">Нажмите на мастера чтобы отредактировать расписание</p>
+        <p className="text-sm text-zinc-500">Нажмите на мастера чтобы отредактировать расписание и распределение услуг по дням</p>
       </div>
 
       {/* Groups */}
       {Object.entries(groups).map(([role, groupMasters]) => (
         <div key={role}>
-          {/* Group header */}
           <div className="flex items-center gap-3 mb-4">
             <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400">{role}</span>
             <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-xs text-zinc-600">{groupMasters.length} мастера</span>
+            <span className="text-xs text-zinc-600">{groupMasters.length} {groupMasters.length === 1 ? 'мастер' : 'мастера'}</span>
           </div>
 
-          {/* Master cards */}
           <div className="space-y-2">
             {groupMasters.map(master => {
               const data   = cache[master.id]
               const isOpen = activeMaster === master.id
+              const masterServices = master.services.map(id => services.find(s => s.id === id)).filter(Boolean) as typeof services
 
               return (
                 <div key={master.id} className="border border-zinc-700 rounded-sm overflow-hidden">
-                  {/* Card header — click to toggle */}
+                  {/* Card header */}
                   <button
                     onClick={() => toggleMaster(master.id)}
                     className="w-full flex items-center gap-4 px-5 py-4 bg-zinc-800 hover:bg-zinc-750 transition-colors text-left"
                   >
-                    {/* Photo */}
                     <img
                       src={master.photo || 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop'}
                       alt={master.name}
                       className="w-10 h-10 rounded-full object-cover border border-zinc-700 shrink-0"
                       onError={e => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop' }}
                     />
-
-                    {/* Name + services */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white leading-snug">{master.name}</p>
                       <p className="text-xs text-zinc-500 truncate mt-0.5">
-                        {master.services.map(id => services.find(s => s.id === id)?.name).filter(Boolean).join(', ') || 'Услуги не указаны'}
+                        {masterServices.map(s => s.name).join(', ') || 'Услуги не указаны'}
                       </p>
                     </div>
-
-                    {/* Week dots preview */}
                     <div className="hidden sm:flex items-center gap-1.5 mr-2">
                       {DAYS_SHORT.map((d, i) => {
                         const dayData = data?.schedule.find(s => s.dayOfWeek === i)
@@ -186,18 +222,17 @@ export default function AdminSchedule() {
                         )
                       })}
                     </div>
-
-                    {/* Expand arrow */}
                     {isOpen ? <CaretUp size={14} className="text-zinc-400 shrink-0" /> : <CaretDown size={14} className="text-zinc-400 shrink-0" />}
                   </button>
 
                   {/* Expanded editor */}
                   {isOpen && (
-                    <div className="bg-zinc-900 border-t border-zinc-700 p-5 space-y-6">
-                      {/* Weekly schedule */}
+                    <div className="bg-zinc-900 border-t border-zinc-700 p-5 space-y-7">
+
+                      {/* ── 1. General schedule ─────────────────────────────── */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Рабочие дни</h4>
+                          <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Рабочие дни и часы</h4>
                           <button onClick={() => handleSave(master.id)} disabled={saving}
                             className="flex items-center gap-1.5 px-3 py-2 bg-[var(--color-accent)] text-white text-xs font-medium rounded-sm hover:bg-[var(--color-accent-light)] disabled:opacity-50 active:scale-[0.97] transition-all">
                             <FloppyDisk size={13} weight="bold" />
@@ -237,7 +272,82 @@ export default function AdminSchedule() {
                         </div>
                       </div>
 
-                      {/* Days off */}
+                      {/* ── 2. Services per day ───────────────────────────────
+                           Which days the master does each service.
+                           Empty = available all working days (no restriction). */}
+                      {masterServices.length > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Услуги по дням</h4>
+                            <button onClick={() => handleSaveServiceDays(master.id)} disabled={savingSvc}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--color-accent)] text-white text-xs font-medium rounded-sm hover:bg-[var(--color-accent-light)] disabled:opacity-50 active:scale-[0.97] transition-all">
+                              <FloppyDisk size={13} weight="bold" />
+                              Сохранить
+                            </button>
+                          </div>
+
+                          <div className="flex items-start gap-1.5 mb-4 p-3 bg-zinc-800/60 border border-zinc-700/50 rounded-sm">
+                            <Info size={14} className="text-zinc-500 shrink-0 mt-0.5" />
+                            <p className="text-xs text-zinc-500 leading-relaxed">
+                              Отметьте дни, в которые мастер выполняет каждую услугу.{' '}
+                              <span className="text-zinc-400">Если ни один день не выбран — услуга доступна все рабочие дни.</span>
+                            </p>
+                          </div>
+
+                          <div className="border border-zinc-700 rounded-sm overflow-hidden divide-y divide-zinc-800">
+                            {/* Header row */}
+                            <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800">
+                              <span className="text-[10px] text-zinc-500 font-medium flex-1">Услуга</span>
+                              {DAYS_SHORT.map(d => (
+                                <span key={d} className="text-[10px] text-zinc-500 w-8 text-center">{d}</span>
+                              ))}
+                            </div>
+
+                            {/* Service rows */}
+                            {masterServices.map(svc => {
+                              const activeDays = data?.schedule.filter(s => s.active).map(s => s.dayOfWeek) ?? []
+                              const selectedDays = data?.serviceDays[svc.id] ?? new Set<number>()
+                              const hasRestriction = selectedDays.size > 0
+
+                              return (
+                                <div key={svc.id} className="flex items-center gap-2 px-4 py-3 bg-zinc-800/40 hover:bg-zinc-800/70 transition-colors">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-white font-medium truncate">{svc.name}</p>
+                                    {!hasRestriction && (
+                                      <p className="text-[10px] text-zinc-600 mt-0.5">все рабочие дни</p>
+                                    )}
+                                  </div>
+
+                                  {DAYS_SHORT.map((_, dow) => {
+                                    const isWorkDay = activeDays.includes(dow)
+                                    const isChecked = selectedDays.has(dow)
+
+                                    return (
+                                      <button
+                                        key={dow}
+                                        disabled={!isWorkDay}
+                                        onClick={() => toggleServiceDay(master.id, svc.id, dow)}
+                                        title={isWorkDay ? `${DAYS_FULL[dow]}: ${isChecked ? 'убрать' : 'добавить'} ${svc.name}` : `${DAYS_FULL[dow]}: выходной`}
+                                        className={`w-8 h-8 rounded flex items-center justify-center text-xs font-medium transition-all shrink-0
+                                          ${!isWorkDay
+                                            ? 'opacity-20 cursor-not-allowed'
+                                            : isChecked
+                                              ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                                              : 'bg-zinc-700/60 text-zinc-500 hover:bg-zinc-600 hover:text-zinc-300'
+                                          }`}
+                                      >
+                                        {isWorkDay ? (isChecked ? '✓' : '–') : '×'}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ── 3. Individual days off ───────────────────────────── */}
                       <div>
                         <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Индивидуальные выходные</h4>
                         <div className="flex gap-2 mb-3 flex-wrap">
@@ -272,6 +382,7 @@ export default function AdminSchedule() {
                           )
                         }
                       </div>
+
                     </div>
                   )}
                 </div>

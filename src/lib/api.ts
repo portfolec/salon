@@ -169,6 +169,62 @@ export async function removeDayOff(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ─── SERVICE DAYS (per-service day restrictions) ─────────────────────────────
+
+/**
+ * Returns set of day_of_week numbers (0=Пн … 6=Вс) the master does this service.
+ * Empty set means "no restriction — all working days".
+ */
+export async function fetchServiceDays(masterId: string, serviceId: string): Promise<Set<number>> {
+  const { data } = await supabase
+    .from('master_service_days')
+    .select('day_of_week')
+    .eq('master_id', masterId)
+    .eq('service_id', serviceId)
+  return new Set((data ?? []).map(r => r.day_of_week as number))
+}
+
+/**
+ * Fetches all service-day restrictions for a master (all services at once).
+ * Returns map: serviceId → Set<dayOfWeek>
+ */
+export async function fetchAllServiceDays(masterId: string): Promise<Record<string, Set<number>>> {
+  const { data } = await supabase
+    .from('master_service_days')
+    .select('service_id, day_of_week')
+    .eq('master_id', masterId)
+  const result: Record<string, Set<number>> = {}
+  for (const r of data ?? []) {
+    const sid = r.service_id as string
+    if (!result[sid]) result[sid] = new Set()
+    result[sid].add(r.day_of_week as number)
+  }
+  return result
+}
+
+/**
+ * Saves which days a master does a specific service.
+ * Replaces all previous rows for this master+service.
+ * Pass empty set to remove all restrictions (available every working day).
+ */
+export async function saveServiceDays(masterId: string, serviceId: string, days: Set<number>): Promise<void> {
+  await supabase
+    .from('master_service_days')
+    .delete()
+    .eq('master_id', masterId)
+    .eq('service_id', serviceId)
+
+  if (days.size === 0) return
+
+  const rows = Array.from(days).map(dow => ({
+    master_id: masterId,
+    service_id: serviceId,
+    day_of_week: dow,
+  }))
+  const { error } = await supabase.from('master_service_days').insert(rows)
+  if (error) throw error
+}
+
 // ─── BOOKINGS ────────────────────────────────────────────────────────────────
 
 function rowToBooking(r: Record<string, unknown>): Booking {
@@ -268,14 +324,21 @@ export async function getAvailableDays(
 
   if (!masterIds.length) return new Set()
 
-  const { data: schedules } = await supabase
-    .from('master_schedule').select('master_id, day_of_week').in('master_id', masterIds).eq('active', true)
-
   const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`
   const endDate   = `${year}-${String(month + 1).padStart(2, '0')}-31`
-  const { data: daysOff } = await supabase
-    .from('master_days_off').select('master_id, date')
-    .in('master_id', masterIds).gte('date', startDate).lte('date', endDate)
+
+  const [{ data: schedules }, { data: daysOff }, { data: serviceDaysRows }] = await Promise.all([
+    supabase.from('master_schedule').select('master_id, day_of_week').in('master_id', masterIds).eq('active', true),
+    supabase.from('master_days_off').select('master_id, date').in('master_id', masterIds).gte('date', startDate).lte('date', endDate),
+    supabase.from('master_service_days').select('master_id, day_of_week').in('master_id', masterIds).eq('service_id', serviceId),
+  ])
+
+  // Per-service day restrictions: master_id → set of allowed dow (empty = no restriction)
+  const serviceDayMap: Record<string, Set<number>> = {}
+  serviceDaysRows?.forEach(r => {
+    if (!serviceDayMap[r.master_id]) serviceDayMap[r.master_id] = new Set()
+    serviceDayMap[r.master_id].add(r.day_of_week as number)
+  })
 
   const offMap: Record<string, Set<string>> = {}
   daysOff?.forEach(d => {
@@ -296,7 +359,10 @@ export async function getAvailableDays(
     const anyAvail = masterIds.some(mid => {
       const works = schedules?.some(s => s.master_id === mid && s.day_of_week === dow)
       const isOff = offMap[mid]?.has(dateStr) ?? false
-      return works && !isOff
+      // If service-specific days are set, check restriction; otherwise no restriction
+      const svcDays = serviceDayMap[mid]
+      const serviceAllowed = !svcDays || svcDays.size === 0 || svcDays.has(dow)
+      return works && !isOff && serviceAllowed
     })
     if (anyAvail) result.add(d)
   }
@@ -322,16 +388,31 @@ export async function getTimeSlots(
 
   if (!masterIds.length) return []
 
-  const [{ data: schedules }, { data: existingBookings }] = await Promise.all([
+  const [{ data: schedules }, { data: existingBookings }, { data: serviceDaysRows }] = await Promise.all([
     supabase.from('master_schedule').select('master_id, start_time, end_time')
       .in('master_id', masterIds).eq('day_of_week', dow).eq('active', true),
     supabase.from('bookings').select('master_id, time, duration_minutes')
       .in('master_id', masterIds).eq('date', dateStr).neq('status', 'cancelled'),
+    supabase.from('master_service_days').select('master_id, day_of_week')
+      .in('master_id', masterIds).eq('service_id', serviceId),
   ])
+
+  // Build service restriction map
+  const serviceDayMap: Record<string, Set<number>> = {}
+  serviceDaysRows?.forEach(r => {
+    if (!serviceDayMap[r.master_id]) serviceDayMap[r.master_id] = new Set()
+    serviceDayMap[r.master_id].add(r.day_of_week as number)
+  })
+
+  // Filter schedules by service-specific day restriction
+  const filteredSchedules = (schedules ?? []).filter(sched => {
+    const svcDays = serviceDayMap[sched.master_id]
+    return !svcDays || svcDays.size === 0 || svcDays.has(dow)
+  })
 
   const slotMap: Record<string, boolean> = {}
 
-  for (const sched of schedules ?? []) {
+  for (const sched of filteredSchedules) {
     const startMin = toMinutes(sched.start_time.slice(0, 5))
     const endMin   = toMinutes(sched.end_time.slice(0, 5))
     const masterBookings = existingBookings?.filter(b => b.master_id === sched.master_id) ?? []
