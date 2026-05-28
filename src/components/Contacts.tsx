@@ -3,6 +3,14 @@ import { motion } from 'motion/react'
 import {
   MapPin, Phone, Clock, TelegramLogo, InstagramLogo
 } from '@phosphor-icons/react'
+
+function VkIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.864-.525-2.05-1.727-1.033-.995-1.49-.995-1.745-.995-.352 0-.457.1-.457.592v1.579c0 .436-.137.7-1.27.7-1.872 0-3.95-1.13-5.41-3.24-2.186-3.07-2.782-5.376-2.782-5.845 0-.263.1-.506.595-.506h1.743c.44 0 .612.2.786.684.87 2.503 2.325 4.695 2.927 4.695.22 0 .32-.1.32-.66V8.81c-.073-1.188-.694-1.29-.694-1.717 0-.208.174-.424.456-.424h2.74c.38 0 .51.2.51.655v3.524c0 .387.177.523.286.523.22 0 .41-.136.826-.554 1.278-1.43 2.185-3.635 2.185-3.635.118-.263.32-.506.758-.506h1.744c.524 0 .635.27.524.657-.22 1.1-2.34 3.985-2.34 3.985-.183.303-.25.437 0 .77.177.25.763.76 1.155 1.226.727.828 1.278 1.527 1.427 2.014.134.457-.1.7-.59.7z"/>
+    </svg>
+  )
+}
 import { useData } from '../context/DataContext'
 
 export default function Contacts() {
@@ -53,7 +61,7 @@ export default function Contacts() {
 
               <div className="pt-4 border-t border-[rgba(26,26,26,0.1)]">
                 <div className="text-xs font-medium tracking-wide uppercase text-[var(--color-ink-tertiary)] mb-4">Мы в соцсетях</div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 flex-wrap">
                   <a href={content.telegramUrl} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
                     <TelegramLogo size={20} weight="light" />Telegram
@@ -62,6 +70,12 @@ export default function Contacts() {
                     className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
                     <InstagramLogo size={20} weight="light" />Instagram
                   </a>
+                  {content.vkUrl && (
+                    <a href={content.vkUrl} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
+                      <VkIcon size={20} />ВКонтакте
+                    </a>
+                  )}
                 </div>
               </div>
             </div>
