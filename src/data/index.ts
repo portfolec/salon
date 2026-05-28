@@ -31,6 +31,7 @@ export interface SiteContent {
   hours: string
   telegramUrl: string
   instagramUrl: string
+  vkUrl?: string
   yandexMetrikaId?: string
   emailjsServiceId?: string
   emailjsTemplateId?: string

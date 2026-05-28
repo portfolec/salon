@@ -52,8 +52,9 @@ export default function AdminContent() {
               { label: 'Адрес',           field: 'address',      placeholder: 'Москва, ул. ...' },
               { label: 'Телефон',         field: 'phone',        placeholder: '+7 (495) 123-45-67' },
               { label: 'Режим работы',       field: 'hours',        placeholder: 'Ежедневно 10:00 - 20:00' },
-              { label: 'Ссылка Telegram', field: 'telegramUrl',  placeholder: 'https://t.me/...' },
-              { label: 'Ссылка Instagram',field: 'instagramUrl', placeholder: 'https://instagram.com/...' },
+              { label: 'Ссылка Telegram',  field: 'telegramUrl',  placeholder: 'https://t.me/...' },
+              { label: 'Ссылка Instagram', field: 'instagramUrl', placeholder: 'https://instagram.com/...' },
+              { label: 'Ссылка ВКонтакте', field: 'vkUrl',        placeholder: 'https://vk.com/...' },
             ] as { label: string; field: keyof SiteContent; placeholder: string }[]).map(({ label, field, placeholder }) => (
               <div key={field}>
                 <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>

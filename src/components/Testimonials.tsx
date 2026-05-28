@@ -39,7 +39,7 @@ export default function Testimonials() {
                   <Star key={idx} size={14} weight="fill" className="text-[var(--color-accent)]" />
                 ))}
               </div>
-              <blockquote className="flex-1 font-display italic text-[var(--color-ink)] leading-relaxed text-base mb-6">
+              <blockquote className="flex-1 text-[var(--color-ink)] leading-relaxed text-sm mb-6">
                 "{t.text}"
               </blockquote>
               <div>

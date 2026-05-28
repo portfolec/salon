@@ -228,6 +228,7 @@ const DEFAULT_CONTENT: SiteContent = {
   hours: 'Ежедневно 10:00 - 20:00',
   telegramUrl: 'https://t.me/stilnyaktsent',
   instagramUrl: 'https://instagram.com/stilnyaktsent',
+  vkUrl: '',
   yandexMetrikaId: '',
   emailjsServiceId: '',
   emailjsTemplateId: '',

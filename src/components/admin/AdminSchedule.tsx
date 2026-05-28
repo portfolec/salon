@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash, FloppyDisk, CheckCircle, WarningCircle } from '@phosphor-icons/react'
+import { Plus, Trash, FloppyDisk, CheckCircle, WarningCircle, CaretDown, CaretUp } from '@phosphor-icons/react'
 import { useData } from '../../context/DataContext'
 import * as api from '../../lib/api'
 import type { ScheduleDay, DayOff } from '../../lib/api'
 
-const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
+const DAYS_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+const DAYS_FULL  = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
 
 const TIME_OPTIONS: string[] = []
 for (let h = 7; h <= 23; h++) {
@@ -12,86 +13,96 @@ for (let h = 7; h <= 23; h++) {
   TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:30`)
 }
 
-const DEFAULT_SCHEDULE: ScheduleDay[] = DAYS.map((_, i) => ({
+const DEFAULT_SCHEDULE: ScheduleDay[] = DAYS_FULL.map((_, i) => ({
   dayOfWeek: i, startTime: '10:00', endTime: '19:00', active: i < 6,
 }))
 
 type Toast = { type: 'success' | 'error'; message: string } | null
 
-export default function AdminSchedule() {
-  const { masters, isDb } = useData()
-  const [masterId, setMasterId] = useState<string>('')
-  const [schedule, setSchedule] = useState<ScheduleDay[]>(DEFAULT_SCHEDULE)
-  const [daysOff, setDaysOff] = useState<DayOff[]>([])
-  const [newDayOff, setNewDayOff] = useState('')
-  const [newReason, setNewReason] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<Toast>(null)
+// ── per-master schedule cache ──────────────────────────────────
+type MasterData = { schedule: ScheduleDay[]; daysOff: DayOff[]; loaded: boolean }
+type Cache = Record<string, MasterData>
 
-  const activeMasterId = masterId || masters[0]?.id || ''
+function emptyData(): MasterData {
+  return { schedule: DEFAULT_SCHEDULE.map(d => ({ ...d })), daysOff: [], loaded: false }
+}
+
+export default function AdminSchedule() {
+  const { masters, services, isDb } = useData()
+
+  const [cache, setCache]           = useState<Cache>({})
+  const [activeMaster, setActive]   = useState<string | null>(null)
+  const [saving, setSaving]         = useState(false)
+  const [toast, setToast]           = useState<Toast>(null)
+  const [newDayOff, setNewDayOff]   = useState('')
+  const [newReason, setNewReason]   = useState('')
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message })
     setTimeout(() => setToast(null), 3000)
   }
 
-  const loadSchedule = useCallback(async (mid: string) => {
-    if (!mid || !isDb) return
-    setLoading(true)
+  // load schedule for a master (once)
+  const loadMaster = useCallback(async (mid: string) => {
+    if (!isDb || cache[mid]?.loaded) return
     try {
       const [sched, offs] = await Promise.all([api.fetchSchedule(mid), api.fetchDaysOff(mid)])
       const filled = DEFAULT_SCHEDULE.map(d => {
         const found = sched.find(s => s.dayOfWeek === d.dayOfWeek)
         return found ? { ...d, ...found } : { ...d, active: false }
       })
-      setSchedule(filled)
-      setDaysOff(offs)
+      setCache(prev => ({ ...prev, [mid]: { schedule: filled, daysOff: offs, loaded: true } }))
     } catch {
       showToast('error', 'Ошибка загрузки расписания')
-    } finally {
-      setLoading(false)
     }
-  }, [isDb])
+  }, [isDb, cache])
 
-  useEffect(() => {
-    if (activeMasterId) loadSchedule(activeMasterId)
-  }, [activeMasterId, loadSchedule])
+  // open / close master panel
+  const toggleMaster = (mid: string) => {
+    if (activeMaster === mid) { setActive(null); return }
+    setActive(mid)
+    loadMaster(mid)
+  }
 
-  const handleSave = async () => {
-    if (!activeMasterId) return
-    setLoading(true)
+  // helpers to mutate cache for active master
+  const setSchedule = (mid: string, fn: (s: ScheduleDay[]) => ScheduleDay[]) =>
+    setCache(prev => ({ ...prev, [mid]: { ...(prev[mid] ?? emptyData()), schedule: fn((prev[mid] ?? emptyData()).schedule) } }))
+
+  const handleSave = async (mid: string) => {
+    const data = cache[mid]; if (!data) return
+    setSaving(true)
     try {
-      await api.saveSchedule(activeMasterId, schedule)
+      await api.saveSchedule(mid, data.schedule)
       showToast('success', 'Расписание сохранено')
-    } catch {
-      showToast('error', 'Ошибка сохранения')
-    } finally {
-      setLoading(false)
-    }
+    } catch { showToast('error', 'Ошибка сохранения') }
+    finally { setSaving(false) }
   }
 
-  const handleAddDayOff = async () => {
-    if (!newDayOff || !activeMasterId) return
+  const handleAddDayOff = async (mid: string) => {
+    if (!newDayOff) return
     try {
-      const added = await api.addDayOff(activeMasterId, newDayOff, newReason)
-      setDaysOff(prev => [...prev, added].sort((a, b) => a.date.localeCompare(b.date)))
-      setNewDayOff('')
-      setNewReason('')
-    } catch {
-      showToast('error', 'Ошибка добавления выходного')
-    }
+      const added = await api.addDayOff(mid, newDayOff, newReason)
+      setCache(prev => ({
+        ...prev,
+        [mid]: { ...(prev[mid] ?? emptyData()), daysOff: [...(prev[mid]?.daysOff ?? []), added].sort((a, b) => a.date.localeCompare(b.date)) }
+      }))
+      setNewDayOff(''); setNewReason('')
+    } catch { showToast('error', 'Ошибка добавления выходного') }
   }
 
-  const handleRemoveDayOff = async (id: string) => {
+  const handleRemoveDayOff = async (mid: string, id: string) => {
     try {
       await api.removeDayOff(id)
-      setDaysOff(prev => prev.filter(d => d.id !== id))
-    } catch {
-      showToast('error', 'Ошибка удаления')
-    }
+      setCache(prev => ({ ...prev, [mid]: { ...(prev[mid] ?? emptyData()), daysOff: (prev[mid]?.daysOff ?? []).filter(d => d.id !== id) } }))
+    } catch { showToast('error', 'Ошибка удаления') }
   }
 
-  const selectedMaster = masters.find(m => m.id === activeMasterId)
+  // group masters by role
+  const groups = masters.reduce<Record<string, typeof masters>>((acc, m) => {
+    const key = m.role || 'Другие'
+    ;(acc[key] = acc[key] ?? []).push(m)
+    return acc
+  }, {})
 
   if (!isDb) {
     return (
@@ -102,14 +113,13 @@ export default function AdminSchedule() {
         <h3 className="text-base font-medium text-white mb-2">Требуется база данных</h3>
         <p className="text-sm text-zinc-500 max-w-sm">
           Управление расписанием доступно только при подключении Supabase.
-          Настройте <code className="bg-zinc-800 px-1 rounded text-zinc-400 text-xs">.env.local</code> и добавьте переменные окружения.
         </p>
       </div>
     )
   }
 
   return (
-    <div className="relative">
+    <div className="relative space-y-8">
       {/* Toast */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-sm shadow-lg text-sm font-medium
@@ -119,141 +129,161 @@ export default function AdminSchedule() {
         </div>
       )}
 
-      <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-white mb-1">График работы</h2>
-            <p className="text-sm text-zinc-500">Расписание по дням недели и выходные дни</p>
-          </div>
-          <button onClick={handleSave} disabled={loading}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] disabled:opacity-50 active:scale-[0.98] transition-all">
-            <FloppyDisk size={15} weight="bold" />
-            Сохранить
-          </button>
-        </div>
-
-        {/* Master selector */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-zinc-800 border border-zinc-700 rounded-sm px-5 py-4">
-          <div className="flex-1">
-            <label className="block text-xs text-zinc-400 mb-2 uppercase tracking-wide">Мастер</label>
-            <select value={activeMasterId} onChange={e => { setMasterId(e.target.value); setSchedule(DEFAULT_SCHEDULE); setDaysOff([]) }}
-              className="w-full sm:max-w-xs bg-zinc-900 border border-zinc-700 text-white rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors">
-              {masters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-          {selectedMaster && (
-            <div className="flex items-center gap-3">
-              <img src={selectedMaster.photo || 'https://picsum.photos/seed/avatar/80/80'} alt={selectedMaster.name}
-                className="w-10 h-10 rounded-full object-cover border border-zinc-600 shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-white">{selectedMaster.name}</p>
-                <p className="text-xs text-zinc-400">{selectedMaster.role}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Weekly schedule */}
-        <div>
-          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-4">Рабочие дни и часы</h3>
-          <div className={`divide-y divide-zinc-700 border border-zinc-700 rounded-sm overflow-hidden ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
-            {schedule.map((day, i) => (
-              <div key={day.dayOfWeek} className="flex items-center gap-4 px-5 py-3.5 bg-zinc-800 hover:bg-zinc-750 transition-colors">
-                <button
-                  onClick={() => setSchedule(prev => prev.map((d, idx) => idx === i ? { ...d, active: !d.active } : d))}
-                  className={`relative inline-flex items-center w-11 h-6 rounded-full shrink-0 transition-colors duration-200 focus:outline-none ${day.active ? 'bg-[var(--color-accent)]' : 'bg-zinc-600'}`}
-                >
-                  <span className={`inline-block w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${day.active ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-                <span className={`text-sm w-28 shrink-0 ${day.active ? 'text-white font-medium' : 'text-zinc-500'}`}>
-                  {DAYS[day.dayOfWeek]}
-                </span>
-                {day.active ? (
-                  <div className="flex items-center gap-2 flex-1 flex-wrap">
-                    <span className="text-xs text-zinc-500">с</span>
-                    <select value={day.startTime}
-                      onChange={e => setSchedule(prev => prev.map((d, idx) => idx === i ? { ...d, startTime: e.target.value } : d))}
-                      className="bg-zinc-900 border border-zinc-700 text-white rounded-sm px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors">
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                    <span className="text-xs text-zinc-500">до</span>
-                    <select value={day.endTime}
-                      onChange={e => setSchedule(prev => prev.map((d, idx) => idx === i ? { ...d, endTime: e.target.value } : d))}
-                      className="bg-zinc-900 border border-zinc-700 text-white rounded-sm px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors">
-                      {TIME_OPTIONS.filter(t => t > day.startTime).map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                ) : (
-                  <span className="text-xs text-zinc-600 flex-1">Выходной</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Days off */}
-        <div>
-          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-4">Индивидуальные выходные</h3>
-          <div className="flex gap-2 mb-4 flex-wrap">
-            <input type="date" value={newDayOff} onChange={e => setNewDayOff(e.target.value)}
-              min={new Date().toLocaleDateString('en-CA')}
-              className="bg-zinc-900 border border-zinc-700 text-white rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors" />
-            <input type="text" value={newReason} onChange={e => setNewReason(e.target.value)}
-              placeholder="Причина (необязательно)"
-              className="flex-1 min-w-[180px] bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-[var(--color-accent)] transition-colors" />
-            <button onClick={handleAddDayOff} disabled={!newDayOff}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-zinc-700 text-zinc-200 text-sm font-medium rounded-sm hover:bg-zinc-600 disabled:opacity-40 transition-colors">
-              <Plus size={14} weight="bold" /> Добавить
-            </button>
-          </div>
-          {daysOff.length === 0 ? (
-            <p className="text-sm text-zinc-600">Индивидуальных выходных нет</p>
-          ) : (
-            <div className="space-y-2">
-              {daysOff.map(d => (
-                <div key={d.id} className="flex items-center justify-between px-5 py-3 bg-zinc-800 border border-zinc-700 rounded-sm">
-                  <div>
-                    <span className="text-sm font-medium text-white">
-                      {new Date(d.date + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                    </span>
-                    {d.reason && <span className="text-xs text-zinc-500 ml-2">— {d.reason}</span>}
-                  </div>
-                  <button onClick={() => handleRemoveDayOff(d.id)}
-                    className="text-zinc-500 hover:text-red-400 transition-colors p-1.5">
-                    <Trash size={15} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Master services */}
-        <div>
-          <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Услуги мастера</h3>
-          <p className="text-xs text-zinc-600 mb-3">Изменить набор услуг можно в разделе «Мастера»</p>
-          {selectedMaster && selectedMaster.services.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              <ServiceTags masterServices={selectedMaster.services} />
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-600">У мастера нет привязанных услуг</p>
-          )}
-        </div>
+      <div>
+        <h2 className="text-xl font-semibold text-white mb-1">График работы</h2>
+        <p className="text-sm text-zinc-500">Нажмите на мастера чтобы отредактировать расписание</p>
       </div>
-    </div>
-  )
-}
 
-function ServiceTags({ masterServices }: { masterServices: string[] }) {
-  const { services } = useData()
-  const names = masterServices.map(id => services.find(s => s.id === id)?.name).filter(Boolean)
-  return (
-    <>
-      {names.map(n => (
-        <span key={n} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded-sm font-medium">{n}</span>
+      {/* Groups */}
+      {Object.entries(groups).map(([role, groupMasters]) => (
+        <div key={role}>
+          {/* Group header */}
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase text-zinc-400">{role}</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="text-xs text-zinc-600">{groupMasters.length} мастера</span>
+          </div>
+
+          {/* Master cards */}
+          <div className="space-y-2">
+            {groupMasters.map(master => {
+              const data   = cache[master.id]
+              const isOpen = activeMaster === master.id
+
+              return (
+                <div key={master.id} className="border border-zinc-700 rounded-sm overflow-hidden">
+                  {/* Card header — click to toggle */}
+                  <button
+                    onClick={() => toggleMaster(master.id)}
+                    className="w-full flex items-center gap-4 px-5 py-4 bg-zinc-800 hover:bg-zinc-750 transition-colors text-left"
+                  >
+                    {/* Photo */}
+                    <img
+                      src={master.photo || 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop'}
+                      alt={master.name}
+                      className="w-10 h-10 rounded-full object-cover border border-zinc-700 shrink-0"
+                      onError={e => { (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop' }}
+                    />
+
+                    {/* Name + services */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white leading-snug">{master.name}</p>
+                      <p className="text-xs text-zinc-500 truncate mt-0.5">
+                        {master.services.map(id => services.find(s => s.id === id)?.name).filter(Boolean).join(', ') || 'Услуги не указаны'}
+                      </p>
+                    </div>
+
+                    {/* Week dots preview */}
+                    <div className="hidden sm:flex items-center gap-1.5 mr-2">
+                      {DAYS_SHORT.map((d, i) => {
+                        const dayData = data?.schedule.find(s => s.dayOfWeek === i)
+                        const active  = data?.loaded ? (dayData?.active ?? false) : i < 6
+                        return (
+                          <div key={d} className="flex flex-col items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-400' : 'bg-zinc-700'}`} />
+                            <span className="text-[9px] text-zinc-600">{d}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Expand arrow */}
+                    {isOpen ? <CaretUp size={14} className="text-zinc-400 shrink-0" /> : <CaretDown size={14} className="text-zinc-400 shrink-0" />}
+                  </button>
+
+                  {/* Expanded editor */}
+                  {isOpen && (
+                    <div className="bg-zinc-900 border-t border-zinc-700 p-5 space-y-6">
+                      {/* Weekly schedule */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Рабочие дни</h4>
+                          <button onClick={() => handleSave(master.id)} disabled={saving}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-[var(--color-accent)] text-white text-xs font-medium rounded-sm hover:bg-[var(--color-accent-light)] disabled:opacity-50 active:scale-[0.97] transition-all">
+                            <FloppyDisk size={13} weight="bold" />
+                            Сохранить
+                          </button>
+                        </div>
+                        <div className="divide-y divide-zinc-800 border border-zinc-700 rounded-sm overflow-hidden">
+                          {(data?.schedule ?? DEFAULT_SCHEDULE).map((day, i) => (
+                            <div key={day.dayOfWeek} className="flex items-center gap-3 px-4 py-3 bg-zinc-800/50">
+                              <button
+                                onClick={() => setSchedule(master.id, prev => prev.map((d, idx) => idx === i ? { ...d, active: !d.active } : d))}
+                                className={`relative inline-flex items-center w-10 h-5 rounded-full shrink-0 transition-colors duration-200 ${day.active ? 'bg-[var(--color-accent)]' : 'bg-zinc-600'}`}
+                              >
+                                <span className={`inline-block w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform duration-200 ${day.active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                              </button>
+                              <span className={`text-sm w-24 shrink-0 ${day.active ? 'text-white' : 'text-zinc-600'}`}>{DAYS_FULL[day.dayOfWeek]}</span>
+                              {day.active ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs text-zinc-500">с</span>
+                                  <select value={day.startTime}
+                                    onChange={e => setSchedule(master.id, prev => prev.map((d, idx) => idx === i ? { ...d, startTime: e.target.value } : d))}
+                                    className="bg-zinc-900 border border-zinc-700 text-white rounded-sm px-2 py-1 text-xs focus:outline-none focus:border-[var(--color-accent)]">
+                                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                                  <span className="text-xs text-zinc-500">до</span>
+                                  <select value={day.endTime}
+                                    onChange={e => setSchedule(master.id, prev => prev.map((d, idx) => idx === i ? { ...d, endTime: e.target.value } : d))}
+                                    className="bg-zinc-900 border border-zinc-700 text-white rounded-sm px-2 py-1 text-xs focus:outline-none focus:border-[var(--color-accent)]">
+                                    {TIME_OPTIONS.filter(t => t > day.startTime).map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-zinc-600">Выходной</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Days off */}
+                      <div>
+                        <h4 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Индивидуальные выходные</h4>
+                        <div className="flex gap-2 mb-3 flex-wrap">
+                          <input type="date" value={newDayOff} onChange={e => setNewDayOff(e.target.value)}
+                            min={new Date().toLocaleDateString('en-CA')}
+                            className="bg-zinc-800 border border-zinc-700 text-white rounded-sm px-3 py-2 text-xs focus:outline-none focus:border-[var(--color-accent)]" />
+                          <input type="text" value={newReason} onChange={e => setNewReason(e.target.value)}
+                            placeholder="Причина (необязательно)"
+                            className="flex-1 min-w-[160px] bg-zinc-800 border border-zinc-700 text-white placeholder:text-zinc-600 rounded-sm px-3 py-2 text-xs focus:outline-none focus:border-[var(--color-accent)]" />
+                          <button onClick={() => handleAddDayOff(master.id)} disabled={!newDayOff}
+                            className="flex items-center gap-1 px-3 py-2 bg-zinc-700 text-zinc-200 text-xs font-medium rounded-sm hover:bg-zinc-600 disabled:opacity-40 transition-colors">
+                            <Plus size={12} weight="bold" /> Добавить
+                          </button>
+                        </div>
+                        {(data?.daysOff ?? []).length === 0
+                          ? <p className="text-xs text-zinc-600">Выходных нет</p>
+                          : (
+                            <div className="space-y-1.5">
+                              {(data?.daysOff ?? []).map(d => (
+                                <div key={d.id} className="flex items-center justify-between px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-sm">
+                                  <span className="text-xs text-white">
+                                    {new Date(d.date + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' })}
+                                    {d.reason && <span className="text-zinc-500 ml-2">— {d.reason}</span>}
+                                  </span>
+                                  <button onClick={() => handleRemoveDayOff(master.id, d.id)}
+                                    className="text-zinc-600 hover:text-red-400 transition-colors p-1">
+                                    <Trash size={13} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        }
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       ))}
-    </>
+
+      {masters.length === 0 && (
+        <p className="text-sm text-zinc-600">Мастера не добавлены. Добавьте их в разделе «Мастера».</p>
+      )}
+    </div>
   )
 }
