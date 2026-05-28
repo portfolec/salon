@@ -30,7 +30,7 @@ interface AdminPanelProps {
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>('bookings')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { newBookingsCount, isDb } = useData()
+  const { newBookingsCount, isDb, dbError, dbOk } = useData()
 
   return (
     <div className="min-h-screen bg-zinc-950 flex">
@@ -50,10 +50,32 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
         </div>
 
         {/* DB status badge */}
-        {isDb && (
-          <div className="mx-4 mt-3 mb-1 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-medium text-emerald-400 tracking-wide">Supabase подключён</span>
+        {isDb ? (
+          dbOk ? (
+            <div className="mx-4 mt-3 mb-1 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-medium text-emerald-400 tracking-wide">База подключена</span>
+            </div>
+          ) : (
+            <div className="mx-4 mt-3 mb-1 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                <span className="text-[10px] font-medium text-red-300 tracking-wide">Ошибка подключения</span>
+              </div>
+              {dbError && (
+                <p className="mt-1 text-[10px] text-red-200/70 leading-snug break-words">
+                  {dbError}
+                </p>
+              )}
+              <p className="mt-1 text-[10px] text-zinc-500 leading-snug">
+                После изменения <code className="text-zinc-400">.env.local</code> нужно перезапустить dev-сервер.
+              </p>
+            </div>
+          )
+        ) : (
+          <div className="mx-4 mt-3 mb-1 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
+            <span className="text-[10px] font-medium text-zinc-400 tracking-wide">База не настроена</span>
           </div>
         )}
 

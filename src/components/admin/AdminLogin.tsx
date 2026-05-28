@@ -60,7 +60,6 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
               Войти
             </button>
           </form>
-          <p className="text-xs text-zinc-600 mt-4 text-center">Установите <code className="text-zinc-500">VITE_ADMIN_PASSWORD</code> в .env.local</p>
         </div>
       </div>
     </div>

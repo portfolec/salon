@@ -54,6 +54,8 @@ interface ContextValue {
   loading: boolean
   newBookingsCount: number
   isDb: boolean
+  dbError: string | null
+  dbOk: boolean
 
   // Actions
   addService:    (s: Omit<Service, 'id'>) => Promise<void>
@@ -80,6 +82,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [content,  setContentState] = useState<SiteContent>(DEFAULT_CONTENT)
   const [loading,  setLoading]  = useState(isSupabaseConfigured)
+  const [dbError, setDbError] = useState<string | null>(null)
+  const [dbOk, setDbOk] = useState(false)
 
   const isDb = isSupabaseConfigured
 
@@ -94,6 +98,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return
     }
     setLoading(true)
+    setDbError(null)
     try {
       const [svcs, msts, bkgs, cnt] = await Promise.all([
         api.fetchServices(),
@@ -105,7 +110,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setMasters(msts)
       setBookings(bkgs)
       setContentState(cnt as SiteContent)
+      setDbOk(true)
     } catch (e) {
+      setDbOk(false)
+      const msg =
+        e && typeof e === 'object' && 'message' in e
+          ? String((e as { message?: unknown }).message)
+          : String(e)
+      setDbError(msg)
       console.error('[DataContext] load error', e)
     } finally {
       setLoading(false)
@@ -263,7 +275,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      services, masters, bookings, content, loading, newBookingsCount, isDb,
+      services, masters, bookings, content, loading, newBookingsCount, isDb, dbError, dbOk,
       addService, updateService, deleteService,
       addMaster, updateMaster, deleteMaster,
       addBooking, updateBookingStatus,
