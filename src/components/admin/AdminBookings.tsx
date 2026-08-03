@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useData, type Booking } from '../../context/DataContext'
-import { CalendarBlank, Phone, User, CheckCircle, XCircle, Clock } from '@phosphor-icons/react'
+import type { BookingSource } from '../../data'
+import {
+  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, X,
+} from '@phosphor-icons/react'
 
 const STATUS_LABELS: Record<Booking['status'], string> = {
   new: 'Новая',
@@ -16,9 +19,32 @@ const STATUS_COLORS: Record<Booking['status'], string> = {
   cancelled: 'bg-red-500/15 text-red-400 border-red-500/20',
 }
 
+const SOURCE_LABELS: Record<BookingSource, string> = {
+  website: 'Сайт',
+  phone: 'Телефон',
+  telegram: 'Telegram',
+  instagram: 'Instagram',
+  admin: 'Админ',
+  other: 'Другое',
+}
+
+const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
+
 export default function AdminBookings() {
-  const { bookings, updateBookingStatus } = useData()
+  const { bookings, updateBookingStatus, addBooking, services, masters } = useData()
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    serviceId: '',
+    masterId: '',
+    date: '',
+    time: '',
+    name: '',
+    phone: '',
+    comment: '',
+    source: 'phone' as BookingSource,
+  })
 
   const filtered = filter === 'all' ? bookings : bookings.filter(b => b.status === filter)
 
@@ -30,14 +56,152 @@ export default function AdminBookings() {
     cancelled: bookings.filter(b => b.status === 'cancelled').length,
   }
 
+  const resetForm = () => {
+    setForm({
+      serviceId: '',
+      masterId: '',
+      date: '',
+      time: '',
+      name: '',
+      phone: '',
+      comment: '',
+      source: 'phone',
+    })
+  }
+
+  const handleCreate = async () => {
+    if (!form.serviceId || !form.date || !form.time || !form.name.trim() || form.phone.replace(/\D/g, '').length < 10) {
+      return
+    }
+    setSaving(true)
+    const svc = services.find(s => s.id === form.serviceId)
+    const mstr = masters.find(m => m.id === form.masterId)
+    const channelNote = `[${SOURCE_LABELS[form.source]}]`
+    const comment = form.comment.trim()
+      ? `${channelNote} ${form.comment.trim()}`
+      : channelNote
+
+    await addBooking({
+      service: svc?.name ?? '',
+      serviceId: form.serviceId,
+      master: mstr?.name ?? null,
+      masterId: form.masterId || undefined,
+      date: form.date,
+      time: form.time,
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      comment,
+      status: 'confirmed',
+      source: form.source,
+    })
+    setSaving(false)
+    setShowForm(false)
+    resetForm()
+  }
+
+  const relevantMasters = form.serviceId
+    ? masters.filter(m => m.services.includes(form.serviceId))
+    : masters
+
   return (
     <div>
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-white mb-1">Заявки на запись</h2>
-        <p className="text-sm text-zinc-500">Всего заявок: {bookings.length}</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-1">Заявки на запись</h2>
+          <p className="text-sm text-zinc-500">Всего заявок: {bookings.length}. Записи с сайта и из админки сразу занимают слот в графике.</p>
+        </div>
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] transition-colors shrink-0"
+        >
+          {showForm ? <X size={16} /> : <Plus size={16} />}
+          {showForm ? 'Закрыть' : 'Добавить запись'}
+        </button>
       </div>
 
-      {/* Filter tabs */}
+      {showForm && (
+        <div className="mb-8 bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Новая запись в график</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Канал</label>
+              <select
+                value={form.source}
+                onChange={e => setForm(f => ({ ...f, source: e.target.value as BookingSource }))}
+                className={inputCls}
+              >
+                {(['phone', 'telegram', 'instagram', 'admin', 'other'] as BookingSource[]).map(s => (
+                  <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Услуга</label>
+              <select
+                value={form.serviceId}
+                onChange={e => setForm(f => ({ ...f, serviceId: e.target.value, masterId: '' }))}
+                className={inputCls}
+              >
+                <option value="">Выберите услугу</option>
+                {services.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Мастер</label>
+              <select
+                value={form.masterId}
+                onChange={e => setForm(f => ({ ...f, masterId: e.target.value }))}
+                className={inputCls}
+              >
+                <option value="">Любой / не указан</option>
+                {relevantMasters.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Дата</label>
+              <input type="date" value={form.date}
+                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Время</label>
+              <input type="time" value={form.time}
+                onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+                className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Имя клиента</label>
+              <input value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Имя" className={inputCls} />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Телефон</label>
+              <input value={form.phone}
+                onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="+7 ..." className={inputCls} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-zinc-400 mb-1.5">Комментарий</label>
+              <input value={form.comment}
+                onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
+                placeholder="Пожелания..." className={inputCls} />
+            </div>
+          </div>
+          <button
+            onClick={handleCreate}
+            disabled={saving}
+            className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-sm hover:bg-emerald-500 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Сохранение...' : 'Сохранить в график'}
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2 mb-6">
         {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
@@ -64,6 +228,11 @@ export default function AdminBookings() {
                     <span className={`text-xs px-2.5 py-1 rounded-sm border font-medium ${STATUS_COLORS[booking.status]}`}>
                       {STATUS_LABELS[booking.status]}
                     </span>
+                    {booking.source && (
+                      <span className="text-xs px-2 py-1 rounded-sm border border-zinc-600 text-zinc-400">
+                        {SOURCE_LABELS[booking.source] ?? booking.source}
+                      </span>
+                    )}
                     <span className="text-xs text-zinc-500">
                       {new Date(booking.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
@@ -89,11 +258,10 @@ export default function AdminBookings() {
                     </div>
                   </div>
                   {booking.comment && (
-                    <p className="mt-2 text-xs text-zinc-500 italic">"{booking.comment}"</p>
+                    <p className="mt-2 text-xs text-zinc-500 italic">&ldquo;{booking.comment}&rdquo;</p>
                   )}
                 </div>
 
-                {/* Status actions */}
                 <div className="flex flex-row sm:flex-col gap-2 shrink-0">
                   {booking.status === 'new' && (
                     <button onClick={() => updateBookingStatus(booking.id, 'confirmed')}

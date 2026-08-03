@@ -13,8 +13,9 @@ function VkIcon({ size = 16 }: { size?: number }) {
 const NAV = [
   { href: '#services', label: 'Услуги' },
   { href: '#why-us',  label: 'О нас' },
-  { href: '#masters',  label: 'Мастера' },
+  { href: '#masters',  label: 'Мы в лицах' },
   { href: '#reviews',  label: 'Отзывы' },
+  { href: '#vacancies', label: 'Вакансии' },
   { href: '#contacts', label: 'Контакты' },
 ]
 

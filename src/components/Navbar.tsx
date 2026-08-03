@@ -10,8 +10,9 @@ interface NavbarProps {
 const links = [
   { href: '#services', label: 'Услуги' },
   { href: '#why-us', label: 'О нас' },
-  { href: '#masters', label: 'Мастера' },
+  { href: '#masters', label: 'Мы в лицах' },
   { href: '#reviews', label: 'Отзывы' },
+  { href: '#vacancies', label: 'Вакансии' },
   { href: '#contacts', label: 'Контакты' },
 ]
 
@@ -47,25 +48,22 @@ export default function Navbar({ onBooking }: NavbarProps) {
             : '1px solid rgba(255,255,255,0.08)',
         }}
       >
-        <nav className="max-w-7xl mx-auto px-6 lg:px-10 flex items-center justify-between h-16">
+        <nav className="max-w-7xl mx-auto px-5 lg:px-10 flex items-center justify-between h-[72px]">
 
-          {/* Logo */}
-          <a href="#" aria-label="Стильный Акцент — главная">
-            {/* sm на мобильном, md на десктопе */}
+          <a href="#" aria-label="Стильный Акцент - главная" className="shrink-0">
             <span className="block lg:hidden"><Logo size="sm" dark={!scrolled} /></span>
             <span className="hidden lg:block"><Logo size="md" dark={!scrolled} /></span>
           </a>
 
-          {/* Desktop nav links */}
-          <ul className="hidden lg:flex items-center gap-8">
+          <ul className="hidden lg:flex items-center gap-6 xl:gap-7">
             {links.map((l) => (
               <li key={l.href}>
                 <a
                   href={l.href}
-                  className="text-[12px] font-medium tracking-[0.18em] uppercase transition-colors duration-200"
-                  style={{ color: scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.80)' }}
+                  className="text-[14px] font-medium tracking-[0.08em] uppercase transition-colors duration-200 whitespace-nowrap"
+                  style={{ color: scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.85)' }}
                   onMouseEnter={e => (e.currentTarget.style.color = scrolled ? 'var(--color-ink)' : '#fff')}
-                  onMouseLeave={e => (e.currentTarget.style.color = scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.80)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.85)')}
                 >
                   {l.label}
                 </a>
@@ -73,38 +71,28 @@ export default function Navbar({ onBooking }: NavbarProps) {
             ))}
           </ul>
 
-          {/* Desktop: phone + CTA */}
-          <div className="hidden lg:flex items-center gap-5">
+          <div className="hidden lg:flex items-center gap-4">
             <a
               href={`tel:${content.phone.replace(/\D/g, '')}`}
-              className="text-[12px] font-light transition-colors duration-200"
-              style={{ color: scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.65)' }}
+              className="text-[13px] font-light transition-colors duration-200 whitespace-nowrap"
+              style={{ color: scrolled ? 'var(--color-ink-secondary)' : 'rgba(255,255,255,0.7)' }}
             >
               {content.phone}
             </a>
             <button
               onClick={onBooking}
-              className="text-[11px] font-medium tracking-[0.2em] uppercase px-5 py-2.5 transition-all duration-200 active:scale-[0.98]"
+              className="cta-shimmer text-[12px] font-medium tracking-[0.16em] uppercase px-5 py-2.5 active:scale-[0.98]"
               style={{
-                backgroundColor: scrolled ? 'var(--color-ink)' : 'rgba(255,255,255,0.15)',
+                backgroundColor: scrolled ? 'var(--color-accent)' : 'rgba(139,107,74,0.85)',
                 color: '#fff',
-                border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.4)',
+                border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.35)',
                 borderRadius: 'var(--radius-btn)',
-              }}
-              onMouseEnter={e => {
-                const b = e.currentTarget
-                b.style.backgroundColor = scrolled ? 'var(--color-accent)' : 'rgba(255,255,255,0.25)'
-              }}
-              onMouseLeave={e => {
-                const b = e.currentTarget
-                b.style.backgroundColor = scrolled ? 'var(--color-ink)' : 'rgba(255,255,255,0.15)'
               }}
             >
               Записаться
             </button>
           </div>
 
-          {/* Mobile: animated hamburger */}
           <button
             className="lg:hidden flex flex-col gap-[5px] p-2"
             onClick={() => setMenuOpen(v => !v)}
@@ -132,7 +120,6 @@ export default function Navbar({ onBooking }: NavbarProps) {
         </nav>
       </header>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {menuOpen && (
           <>
@@ -146,7 +133,7 @@ export default function Navbar({ onBooking }: NavbarProps) {
             />
 
             <motion.div
-              className="fixed top-16 left-0 right-0 z-40 border-b border-stone-200 shadow-2xl"
+              className="fixed top-[72px] left-0 right-0 z-40 border-b border-stone-200 shadow-2xl"
               style={{ backgroundColor: 'rgba(245,245,243,0.98)', backdropFilter: 'blur(20px)' }}
               initial={{ y: -8, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -184,9 +171,9 @@ export default function Navbar({ onBooking }: NavbarProps) {
                 <div className="mt-5 flex flex-col gap-3">
                   <button
                     onClick={() => { setMenuOpen(false); onBooking() }}
-                    className="w-full py-3.5 text-white text-[12px] font-medium tracking-[0.22em] uppercase transition-colors duration-200"
+                    className="cta-shimmer w-full py-3.5 text-white text-[13px] font-medium tracking-[0.18em] uppercase"
                     style={{
-                      backgroundColor: 'var(--color-ink, #1a1a1a)',
+                      backgroundColor: 'var(--color-accent)',
                       borderRadius: 'var(--radius-btn, 0)',
                     }}
                   >

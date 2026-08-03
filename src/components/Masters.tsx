@@ -26,10 +26,10 @@ export default function Masters({ onBooking }: MastersProps) {
           transition={{ duration: 0.55, ease: EASE_OUT }}
         >
           <h2 className="font-display text-3xl md:text-4xl lg:text-5xl text-[var(--color-ink)] leading-tight">
-            Наши мастера
+            Мы в лицах
           </h2>
           <p className="text-[var(--color-ink-secondary)] max-w-[38ch] text-sm leading-relaxed">
-            Каждый специалист — профессионал своего направления с многолетним опытом работы.
+            Команда, за которой стоит опыт, сервис и аккуратность в каждой детали.
           </p>
         </motion.div>
 

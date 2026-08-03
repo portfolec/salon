@@ -32,12 +32,16 @@ export interface SiteContent {
   telegramUrl: string
   instagramUrl: string
   vkUrl?: string
+  yandexMapsUrl?: string
+  twoGisUrl?: string
   yandexMetrikaId?: string
   emailjsServiceId?: string
   emailjsTemplateId?: string
   emailjsPublicKey?: string
   notificationEmail?: string
 }
+
+export type BookingSource = 'website' | 'phone' | 'telegram' | 'instagram' | 'admin' | 'other'
 
 export interface Booking {
   id: string
@@ -52,6 +56,14 @@ export interface Booking {
   phone: string
   comment: string
   status: 'new' | 'confirmed' | 'done' | 'cancelled'
+  source?: BookingSource
+}
+
+export interface Vacancy {
+  id: string
+  title: string
+  description: string
+  requirements: string
 }
 
 export const services: Service[] = [
@@ -150,20 +162,41 @@ export const masters: Master[] = [
 
 export const reasons = [
   {
+    title: 'Сервис',
+    body: 'Внимание к каждому клиенту: встречаем, сопровождаем и доводим результат до идеала.',
+  },
+  {
+    title: 'Аккуратность',
+    body: 'Чистота рабочих мест, стерильные инструменты и бережное отношение к деталям.',
+  },
+  {
     title: 'Мастера с опытом',
     body: 'От 5 до 9 лет практики, регулярное повышение квалификации.',
   },
   {
-    title: 'Премиальная косметика',
-    body: 'Работаем только с профессиональными брендами — Bronish, Kérastase, OPI.',
-  },
-  {
-    title: 'Чистота и приватность',
-    body: 'Стерильные инструменты, одноразовые расходники, спокойная атмосфера.',
-  },
-  {
     title: 'Удобный график',
     body: 'Работаем ежедневно с 10:00 до 20:00, принимаем по записи без очередей.',
+  },
+]
+
+export const vacancies: Vacancy[] = [
+  {
+    id: 'master-manicure',
+    title: 'Мастер маникюра',
+    description: 'Работа в уютном салоне с постоянным потоком клиентов и профессиональной косметикой.',
+    requirements: 'Опыт от 1 года, аккуратность, умение работать с гель-лаком.',
+  },
+  {
+    id: 'hairdresser',
+    title: 'Парикмахер-стилист',
+    description: 'Стрижки, окрашивание и укладки. Дружная команда и гибкий график.',
+    requirements: 'Опыт от 2 лет, портфолио работ.',
+  },
+  {
+    id: 'admin',
+    title: 'Администратор салона',
+    description: 'Встреча гостей, запись клиентов, поддержание сервиса на высоком уровне.',
+    requirements: 'Коммуникабельность, опыт работы с людьми приветствуется.',
   },
 ]
 

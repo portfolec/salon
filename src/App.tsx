@@ -30,6 +30,7 @@ import WhyUs from './components/WhyUs'
 import Masters from './components/Masters'
 import Testimonials from './components/Testimonials'
 import Contacts from './components/Contacts'
+import Vacancies from './components/Vacancies'
 import Footer from './components/Footer'
 import BookingModal from './components/BookingModal'
 import FloatingCTA from './components/FloatingCTA'
@@ -56,6 +57,7 @@ function SiteApp() {
         <WhyUs />
         <Masters onBooking={handleOpenBooking} />
         <Testimonials />
+        <Vacancies />
         <Contacts />
       </main>
       <Footer />

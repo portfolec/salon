@@ -4,56 +4,52 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 'md', dark = false }: LogoProps) {
-  const scales = { sm: 0.65, md: 0.85, lg: 1.3 }
+  const scales = { sm: 0.85, md: 1.1, lg: 1.45 }
   const s = scales[size]
   const color = dark ? '#ffffff' : '#1a1a1a'
   const accentColor = '#8b6b4a'
 
   return (
     <svg
-      width={Math.round(120 * s)}
-      height={Math.round(72 * s)}
-      viewBox="0 0 120 72"
+      width={Math.round(132 * s)}
+      height={Math.round(76 * s)}
+      viewBox="0 0 132 76"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      aria-label="Стильный Акцент — Центр красоты"
+      aria-label="Стильный Акцент - Центр красоты"
     >
-      {/* SA monogram */}
       <text
-        x="60"
-        y="28"
+        x="66"
+        y="30"
         textAnchor="middle"
         fontFamily="Playfair Display, serif"
-        fontSize="30"
+        fontSize="34"
         fontWeight="600"
         letterSpacing="-1"
         fill={color}
       >
         СА
       </text>
-      {/* thin divider */}
-      <line x1="20" y1="35" x2="100" y2="35" stroke={color} strokeWidth="0.5" opacity="0.3" />
-      {/* СТИЛЬНЫЙ АКЦЕНТ */}
+      <line x1="18" y1="38" x2="114" y2="38" stroke={accentColor} strokeWidth="1" opacity="0.7" />
       <text
-        x="60"
-        y="47"
+        x="66"
+        y="52"
         textAnchor="middle"
         fontFamily="Outfit, sans-serif"
-        fontSize="7"
-        fontWeight="300"
-        letterSpacing="3"
+        fontSize="8.5"
+        fontWeight="500"
+        letterSpacing="2.5"
         fill={color}
       >
         СТИЛЬНЫЙ АКЦЕНТ
       </text>
-      {/* Центр красоты — italic serif accent */}
       <text
-        x="60"
-        y="61"
+        x="66"
+        y="66"
         textAnchor="middle"
         fontFamily="Playfair Display, Georgia, serif"
         fontStyle="italic"
-        fontSize="9.5"
+        fontSize="11"
         fontWeight="400"
         fill={accentColor}
         letterSpacing="0.5"

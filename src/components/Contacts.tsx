@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import {
   MapPin, Phone, Clock, TelegramLogo, InstagramLogo
 } from '@phosphor-icons/react'
+import { useData } from '../context/DataContext'
 
 function VkIcon({ size = 20 }: { size?: number }) {
   return (
@@ -11,15 +12,16 @@ function VkIcon({ size = 20 }: { size?: number }) {
     </svg>
   )
 }
-import { useData } from '../context/DataContext'
 
 export default function Contacts() {
   const { content } = useData()
+  const yandexUrl = content.yandexMapsUrl?.trim() || 'https://yandex.ru/maps/-/CPHUNU0q'
+  const twoGisUrl = content.twoGisUrl?.trim()
+
   return (
     <section id="contacts" className="py-24 lg:py-32">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-          {/* Info */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -81,7 +83,6 @@ export default function Contacts() {
             </div>
           </motion.div>
 
-          {/* Map */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -100,12 +101,12 @@ export default function Contacts() {
                 frameBorder="0"
                 allowFullScreen
                 title="Карта расположения салона"
-                className="grayscale opacity-90 hover:grayscale-0 hover:opacity-100 transition-all duration-500"
+                className="opacity-100"
               />
             </div>
-            {/* Баннер — Мы на Яндекс Картах */}
+
             <a
-              href="https://yandex.ru/maps/-/CPHUNU0q"
+              href={yandexUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between px-4 py-3 bg-[var(--color-surface-elevated)] hover:bg-[var(--color-surface)] border border-[rgba(26,26,26,0.08)] hover:border-[var(--color-accent)] transition-all duration-200 group"
@@ -124,6 +125,46 @@ export default function Contacts() {
                 <path d="M7 17L17 7M17 7H7M17 7v10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </a>
+
+            {twoGisUrl ? (
+              <a
+                href={twoGisUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-3 bg-[var(--color-surface-elevated)] hover:bg-[var(--color-surface)] border border-[rgba(26,26,26,0.08)] hover:border-[var(--color-accent)] transition-all duration-200 group"
+                style={{ borderRadius: 'var(--radius-card)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="24" height="24" rx="4" fill="#1A9F29"/>
+                    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">2ГИС</text>
+                  </svg>
+                  <div>
+                    <div className="text-xs font-semibold text-[var(--color-ink)]">Мы на 2ГИС</div>
+                    <div className="text-xs text-[var(--color-ink-tertiary)]">{content.address}</div>
+                  </div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-[var(--color-ink-tertiary)] group-hover:text-[var(--color-accent)] transition-colors shrink-0">
+                  <path d="M7 17L17 7M17 7H7M17 7v10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </a>
+            ) : (
+              <div
+                className="flex items-center justify-between px-4 py-3 border border-dashed border-[rgba(26,26,26,0.15)]"
+                style={{ borderRadius: 'var(--radius-card)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="24" height="24" rx="4" fill="#9a9a9a"/>
+                    <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="700" fontFamily="Arial, sans-serif">2ГИС</text>
+                  </svg>
+                  <div>
+                    <div className="text-xs font-semibold text-[var(--color-ink-tertiary)]">Ссылка на 2ГИС</div>
+                    <div className="text-xs text-[var(--color-ink-tertiary)]">Добавьте в админке, когда будет готова</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

@@ -29,7 +29,7 @@ export default function FloatingCTA({ onBooking }: FloatingCTAProps) {
         >
           <button
             onClick={onBooking}
-            className="pointer-events-auto inline-flex items-center gap-2.5 px-8 py-4 bg-[var(--color-ink)] text-white text-sm font-medium tracking-wide shadow-lg active:scale-[0.97] transition-transform duration-100"
+            className="cta-shimmer pointer-events-auto inline-flex items-center gap-2.5 px-8 py-4 text-white text-sm font-medium tracking-wide shadow-lg active:scale-[0.97]"
             style={{ borderRadius: '100px' }}
           >
             <CalendarBlank size={18} />

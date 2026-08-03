@@ -22,6 +22,8 @@ const DEFAULT_CONTENT: SiteContent = {
   telegramUrl: 'https://t.me/stilnyaktsent',
   instagramUrl: 'https://instagram.com/stilnyaktsent',
   vkUrl: '',
+  yandexMapsUrl: 'https://yandex.ru/maps/-/CPHUNU0q',
+  twoGisUrl: '',
   yandexMetrikaId: '',
   emailjsServiceId: '',
   emailjsTemplateId: '',

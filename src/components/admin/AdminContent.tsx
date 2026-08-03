@@ -54,11 +54,13 @@ export default function AdminContent() {
               { label: 'Режим работы',       field: 'hours',        placeholder: 'Ежедневно 10:00 - 20:00' },
               { label: 'Ссылка Telegram',  field: 'telegramUrl',  placeholder: 'https://t.me/...' },
               { label: 'Ссылка Instagram', field: 'instagramUrl', placeholder: 'https://instagram.com/...' },
-              { label: 'Ссылка ВКонтакте', field: 'vkUrl',        placeholder: 'https://vk.com/...' },
+              { label: 'Ссылка ВКонтакте', field: 'vkUrl',          placeholder: 'https://vk.com/...' },
+              { label: 'Ссылка Яндекс Карты', field: 'yandexMapsUrl', placeholder: 'https://yandex.ru/maps/...' },
+              { label: 'Ссылка 2ГИС', field: 'twoGisUrl',           placeholder: 'https://2gis.ru/...' },
             ] as { label: string; field: keyof SiteContent; placeholder: string }[]).map(({ label, field, placeholder }) => (
               <div key={field}>
                 <label className="block text-xs text-zinc-400 mb-1.5">{label}</label>
-                <input value={form[field]} onChange={e => set(field, e.target.value)}
+                <input value={(form[field] as string) ?? ''} onChange={e => set(field, e.target.value)}
                   placeholder={placeholder} className={inputCls} />
               </div>
             ))}

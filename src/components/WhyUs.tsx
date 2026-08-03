@@ -1,9 +1,9 @@
 'use client'
 import { motion, useReducedMotion } from 'motion/react'
-import { UserCircle, FirstAid, Shield, Clock } from '@phosphor-icons/react'
+import { Handshake, Sparkle, UserCircle, Clock } from '@phosphor-icons/react'
 import { reasons } from '../data'
 
-const icons = [UserCircle, FirstAid, Shield, Clock]
+const icons = [Handshake, Sparkle, UserCircle, Clock]
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 export default function WhyUs() {
@@ -24,7 +24,7 @@ export default function WhyUs() {
               <em className="not-italic text-[var(--color-accent-light)]">Стильный Акцент</em>
             </h2>
             <p className="mt-6 text-[rgba(255,255,255,0.6)] leading-relaxed max-w-[45ch]">
-              Создаём пространство, где клиент чувствует себя в надёжных руках. Каждый визит — результат, которым гордятся.
+              Наши ценности - сервис и аккуратность. Создаём пространство, где клиент чувствует себя в надёжных руках.
             </p>
             <div className="mt-10 overflow-hidden">
               <img

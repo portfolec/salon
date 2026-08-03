@@ -56,7 +56,7 @@ export default function Hero({ onBooking }: HeroProps) {
           {/* Eyebrow */}
           <motion.p {...fadeUp(0.1)}
             className="text-xs font-medium tracking-[0.25em] uppercase text-[rgba(255,255,255,0.55)] mb-6">
-            Стильный Акцент — Центр красоты
+            Стильный Акцент - Центр красоты
           </motion.p>
 
           {/* Headline */}
@@ -75,7 +75,7 @@ export default function Hero({ onBooking }: HeroProps) {
           <motion.div {...fadeUp(0.44)} className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onBooking}
-              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-[var(--color-ink)] text-sm font-medium tracking-wide hover:bg-[var(--color-accent-light)] hover:text-white active:scale-[0.97] transition-all duration-150"
+              className="cta-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 text-white text-sm font-medium tracking-wide active:scale-[0.97]"
               style={{ borderRadius: 'var(--radius-btn)' }}
             >
               Записаться
