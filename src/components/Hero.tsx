@@ -1,4 +1,5 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { ArrowRight } from '@phosphor-icons/react'
 import { useData } from '../context/DataContext'
@@ -13,6 +14,16 @@ interface HeroProps {
 export default function Hero({ onBooking }: HeroProps) {
   const { content } = useData()
   const reduce = useReducedMotion()
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    const update = () => setIsDesktop(mq.matches)
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   const fadeUp = (delay: number) => ({
     initial: { opacity: 0, y: reduce ? 0 : 20 },
@@ -20,14 +31,15 @@ export default function Hero({ onBooking }: HeroProps) {
     transition: { duration: reduce ? 0.01 : 0.75, ease: EASE_OUT, delay: reduce ? 0 : delay },
   })
 
+  const zoomBg = !reduce && isDesktop
+
   return (
     <section className="relative min-h-[100dvh] overflow-hidden">
-      {/* Full-bleed photo — subtle Ken Burns */}
       <motion.div
         className="absolute inset-0"
-        initial={{ scale: 1.06 }}
+        initial={zoomBg ? { scale: 1.06 } : false}
         animate={{ scale: 1 }}
-        transition={{ duration: 2.0, ease: EASE_OUT }}
+        transition={zoomBg ? { duration: 2.0, ease: EASE_OUT } : { duration: 0 }}
       >
         <img
           src="/salon.jpeg"
