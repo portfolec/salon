@@ -95,6 +95,18 @@ CREATE TABLE IF NOT EXISTS master_service_days (
 );
 
 -- ----------------------------------------------------------
+-- MASTER VARIANT DAYS (какие дни мастер выполняет конкретный вид услуги)
+-- Если строк нет для пары master+variant → вид доступен все дни, когда доступна услуга
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS master_variant_days (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  master_id   UUID NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  variant_id  UUID NOT NULL REFERENCES service_variants(id) ON DELETE CASCADE,
+  day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+  UNIQUE (master_id, variant_id, day_of_week)
+);
+
+-- ----------------------------------------------------------
 -- MASTER DAYS OFF (конкретные даты)
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS master_days_off (
@@ -158,6 +170,7 @@ ALTER TABLE service_variants         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE masters                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_services          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_disabled_variants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_variant_days      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_days_off ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
@@ -169,6 +182,7 @@ CREATE POLICY "open" ON service_variants         FOR ALL USING (true) WITH CHECK
 CREATE POLICY "open" ON masters                  FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_services          FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_disabled_variants FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON master_variant_days      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_days_off FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON bookings        FOR ALL USING (true) WITH CHECK (true);

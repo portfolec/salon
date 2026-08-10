@@ -26,12 +26,15 @@ type MasterData = {
   // serviceId → Set of dayOfWeek numbers the master does this service
   // empty Set = no restriction (available all working days)
   serviceDays: Record<string, Set<number>>
+  // variantId → Set of dayOfWeek numbers the master does this specific variant of a service
+  // empty Set = no restriction (available same days as the parent service)
+  variantDays: Record<string, Set<number>>
   loaded: boolean
 }
 type Cache = Record<string, MasterData>
 
 function emptyData(): MasterData {
-  return { schedule: DEFAULT_SCHEDULE.map(d => ({ ...d })), daysOff: [], serviceDays: {}, loaded: false }
+  return { schedule: DEFAULT_SCHEDULE.map(d => ({ ...d })), daysOff: [], serviceDays: {}, variantDays: {}, loaded: false }
 }
 
 export default function AdminSchedule() {
@@ -54,16 +57,17 @@ export default function AdminSchedule() {
   const loadMaster = useCallback(async (mid: string) => {
     if (!isDb || cache[mid]?.loaded) return
     try {
-      const [sched, offs, svcDays] = await Promise.all([
+      const [sched, offs, svcDays, varDays] = await Promise.all([
         api.fetchSchedule(mid),
         api.fetchDaysOff(mid),
         api.fetchAllServiceDays(mid),
+        api.fetchAllVariantDays(mid),
       ])
       const filled = DEFAULT_SCHEDULE.map(d => {
         const found = sched.find(s => s.dayOfWeek === d.dayOfWeek)
         return found ? { ...d, ...found } : { ...d, active: false }
       })
-      setCache(prev => ({ ...prev, [mid]: { schedule: filled, daysOff: offs, serviceDays: svcDays, loaded: true } }))
+      setCache(prev => ({ ...prev, [mid]: { schedule: filled, daysOff: offs, serviceDays: svcDays, variantDays: varDays, loaded: true } }))
     } catch {
       showToast('error', 'Ошибка загрузки расписания')
     }
@@ -99,16 +103,32 @@ export default function AdminSchedule() {
     })
   }
 
+  // Toggle a day for a specific service variant
+  const toggleVariantDay = (mid: string, variantId: string, dow: number) => {
+    setCache(prev => {
+      const d = prev[mid] ?? emptyData()
+      const current = new Set(d.variantDays[variantId] ?? [])
+      if (current.has(dow)) current.delete(dow)
+      else current.add(dow)
+      return { ...prev, [mid]: { ...d, variantDays: { ...d.variantDays, [variantId]: current } } }
+    })
+  }
+
   const handleSaveServiceDays = async (mid: string) => {
     const data = cache[mid]; if (!data) return
     const master = masters.find(m => m.id === mid); if (!master) return
+    const masterServices = master.services.map(id => services.find(s => s.id === id)).filter(Boolean) as typeof services
+    const variantIds = masterServices.flatMap(s => s.variants?.map(v => v.id) ?? [])
     setSavingSvc(true)
     try {
-      await Promise.all(
-        master.services.map(sid =>
+      await Promise.all([
+        ...master.services.map(sid =>
           api.saveServiceDays(mid, sid, data.serviceDays[sid] ?? new Set())
-        )
-      )
+        ),
+        ...variantIds.map(vid =>
+          api.saveVariantDays(mid, vid, data.variantDays[vid] ?? new Set())
+        ),
+      ])
       showToast('success', 'Расписание по услугам сохранено')
     } catch { showToast('error', 'Ошибка сохранения') }
     finally { setSavingSvc(false) }
@@ -290,7 +310,9 @@ export default function AdminSchedule() {
                             <Info size={14} className="text-zinc-500 shrink-0 mt-0.5" />
                             <p className="text-xs text-zinc-500 leading-relaxed">
                               Отметьте дни, в которые мастер выполняет каждую услугу.{' '}
-                              <span className="text-zinc-400">Если ни один день не выбран — услуга доступна все рабочие дни.</span>
+                              <span className="text-zinc-400">Если ни один день не выбран — услуга доступна все рабочие дни.</span>{' '}
+                              Для подкатегорий (например «под машинку» / «ножницами») можно задать отдельные дни —{' '}
+                              <span className="text-zinc-400">если не выбраны, подкатегория доступна в те же дни, что и услуга.</span>
                             </p>
                           </div>
 
@@ -308,36 +330,81 @@ export default function AdminSchedule() {
                               const activeDays = data?.schedule.filter(s => s.active).map(s => s.dayOfWeek) ?? []
                               const selectedDays = data?.serviceDays[svc.id] ?? new Set<number>()
                               const hasRestriction = selectedDays.size > 0
+                              const svcVariants = (svc.variants ?? []).filter(v => !master.disabledVariantIds?.includes(v.id))
 
                               return (
-                                <div key={svc.id} className="flex items-center gap-2 px-4 py-3 bg-zinc-800/40 hover:bg-zinc-800/70 transition-colors">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-white font-medium truncate">{svc.name}</p>
-                                    {!hasRestriction && (
-                                      <p className="text-[10px] text-zinc-600 mt-0.5">все рабочие дни</p>
-                                    )}
+                                <div key={svc.id}>
+                                  <div className="flex items-center gap-2 px-4 py-3 bg-zinc-800/40 hover:bg-zinc-800/70 transition-colors">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-white font-medium truncate">{svc.name}</p>
+                                      {!hasRestriction && (
+                                        <p className="text-[10px] text-zinc-600 mt-0.5">все рабочие дни</p>
+                                      )}
+                                    </div>
+
+                                    {DAYS_SHORT.map((_, dow) => {
+                                      const isWorkDay = activeDays.includes(dow)
+                                      const isChecked = selectedDays.has(dow)
+
+                                      return (
+                                        <button
+                                          key={dow}
+                                          disabled={!isWorkDay}
+                                          onClick={() => toggleServiceDay(master.id, svc.id, dow)}
+                                          title={isWorkDay ? `${DAYS_FULL[dow]}: ${isChecked ? 'убрать' : 'добавить'} ${svc.name}` : `${DAYS_FULL[dow]}: выходной`}
+                                          className={`w-8 h-8 rounded flex items-center justify-center text-xs font-medium transition-all shrink-0
+                                            ${!isWorkDay
+                                              ? 'opacity-20 cursor-not-allowed'
+                                              : isChecked
+                                                ? 'bg-[var(--color-accent)] text-white shadow-sm'
+                                                : 'bg-zinc-700/60 text-zinc-500 hover:bg-zinc-600 hover:text-zinc-300'
+                                            }`}
+                                        >
+                                          {isWorkDay ? (isChecked ? '✓' : '–') : '×'}
+                                        </button>
+                                      )
+                                    })}
                                   </div>
 
-                                  {DAYS_SHORT.map((_, dow) => {
-                                    const isWorkDay = activeDays.includes(dow)
-                                    const isChecked = selectedDays.has(dow)
+                                  {/* Variant sub-rows: per-subcategory day restrictions */}
+                                  {svcVariants.map(variant => {
+                                    const varSelectedDays = data?.variantDays[variant.id] ?? new Set<number>()
+                                    const varHasRestriction = varSelectedDays.size > 0
+                                    // A variant day can only be enabled on a day the service itself is available
+                                    const serviceAllowedDays = activeDays.filter(d => !hasRestriction || selectedDays.has(d))
 
                                     return (
-                                      <button
-                                        key={dow}
-                                        disabled={!isWorkDay}
-                                        onClick={() => toggleServiceDay(master.id, svc.id, dow)}
-                                        title={isWorkDay ? `${DAYS_FULL[dow]}: ${isChecked ? 'убрать' : 'добавить'} ${svc.name}` : `${DAYS_FULL[dow]}: выходной`}
-                                        className={`w-8 h-8 rounded flex items-center justify-center text-xs font-medium transition-all shrink-0
-                                          ${!isWorkDay
-                                            ? 'opacity-20 cursor-not-allowed'
-                                            : isChecked
-                                              ? 'bg-[var(--color-accent)] text-white shadow-sm'
-                                              : 'bg-zinc-700/60 text-zinc-500 hover:bg-zinc-600 hover:text-zinc-300'
-                                          }`}
-                                      >
-                                        {isWorkDay ? (isChecked ? '✓' : '–') : '×'}
-                                      </button>
+                                      <div key={variant.id} className="flex items-center gap-2 pl-8 pr-4 py-2 bg-zinc-900/40 hover:bg-zinc-900/70 transition-colors border-t border-zinc-800/60">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-[11px] text-zinc-300 truncate">└ {variant.name}</p>
+                                          {!varHasRestriction && (
+                                            <p className="text-[9px] text-zinc-600 mt-0.5">как у услуги</p>
+                                          )}
+                                        </div>
+
+                                        {DAYS_SHORT.map((_, dow) => {
+                                          const isWorkDay = serviceAllowedDays.includes(dow)
+                                          const isChecked = varSelectedDays.has(dow)
+
+                                          return (
+                                            <button
+                                              key={dow}
+                                              disabled={!isWorkDay}
+                                              onClick={() => toggleVariantDay(master.id, variant.id, dow)}
+                                              title={isWorkDay ? `${DAYS_FULL[dow]}: ${isChecked ? 'убрать' : 'добавить'} ${variant.name}` : `${DAYS_FULL[dow]}: недоступно`}
+                                              className={`w-8 h-7 rounded flex items-center justify-center text-[11px] font-medium transition-all shrink-0
+                                                ${!isWorkDay
+                                                  ? 'opacity-20 cursor-not-allowed'
+                                                  : isChecked
+                                                    ? 'bg-[var(--color-accent)]/80 text-white shadow-sm'
+                                                    : 'bg-zinc-800/60 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-300'
+                                                }`}
+                                            >
+                                              {isWorkDay ? (isChecked ? '✓' : '–') : '×'}
+                                            </button>
+                                          )
+                                        })}
+                                      </div>
                                     )
                                   })}
                                 </div>

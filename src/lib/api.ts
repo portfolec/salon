@@ -121,6 +121,30 @@ export async function saveServiceDays(masterId: string, serviceId: string, days:
   })
 }
 
+// ─── VARIANT DAYS (per service-variant day restrictions) ────────────────────
+
+/**
+ * Fetches all variant-day restrictions for a master (all variants at once).
+ * Returns map: variantId → Set<dayOfWeek>
+ */
+export async function fetchAllVariantDays(masterId: string): Promise<Record<string, Set<number>>> {
+  const raw = await http<Record<string, number[]>>(`/api/masters/${masterId}/variant-days`)
+  const result: Record<string, Set<number>> = {}
+  for (const [vid, days] of Object.entries(raw)) result[vid] = new Set(days)
+  return result
+}
+
+/**
+ * Saves which days a master does a specific service variant.
+ * Pass empty set to remove all restrictions (available same days as the service).
+ */
+export async function saveVariantDays(masterId: string, variantId: string, days: Set<number>): Promise<void> {
+  await http<void>(`/api/masters/${masterId}/variant-days/${variantId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ days: Array.from(days) }),
+  })
+}
+
 // ─── BOOKINGS ────────────────────────────────────────────────────────────────
 
 export async function fetchBookings(): Promise<Booking[]> {
@@ -200,9 +224,11 @@ export async function getAvailableDays(
   _masterList: Master[],
   year: number,
   month: number,
+  variantId?: string | null,
 ): Promise<Set<number>> {
   const params = new URLSearchParams({ serviceId, year: String(year), month: String(month) })
   if (masterId) params.set('masterId', masterId)
+  if (variantId) params.set('variantId', variantId)
   const days = await http<number[]>(`/api/availability/days?${params}`)
   return new Set(days)
 }
@@ -214,9 +240,11 @@ export async function getTimeSlots(
   _masterList: Master[],
   services: Service[],
   date: Date,
+  variantId?: string | null,
 ): Promise<TimeSlot[]> {
   const svc = services.find(s => s.id === serviceId)
-  const durationMin = svc?.durationMinutes ?? 60
+  const variant = variantId ? svc?.variants?.find(v => v.id === variantId) : undefined
+  const durationMin = variant?.durationMinutes ?? svc?.durationMinutes ?? 60
   const dateStr = date.toLocaleDateString('en-CA') // YYYY-MM-DD
   const params = new URLSearchParams({
     serviceId,
@@ -224,5 +252,6 @@ export async function getTimeSlots(
     durationMinutes: String(durationMin),
   })
   if (masterId) params.set('masterId', masterId)
+  if (variantId) params.set('variantId', variantId)
   return http<TimeSlot[]>(`/api/availability/slots?${params}`)
 }

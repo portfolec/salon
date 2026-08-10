@@ -296,26 +296,26 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
       return
     }
     if (isApiConfigured) {
-      api.getAvailableDays(state.draft.masterId, state.draft.serviceId, masters, state.calYear, state.calMonth)
+      api.getAvailableDays(state.draft.masterId, state.draft.serviceId, masters, state.calYear, state.calMonth, state.draft.variantId)
         .then(days => setAvailDays(days))
         .catch(() => setAvailDays(getAvailableDates(state.calYear, state.calMonth)))
     } else {
       setAvailDays(getAvailableDates(state.calYear, state.calMonth))
     }
-  }, [state.draft.serviceId, state.draft.masterId, state.calYear, state.calMonth, masters, state.step])
+  }, [state.draft.serviceId, state.draft.masterId, state.draft.variantId, state.calYear, state.calMonth, masters, state.step])
 
   useEffect(() => {
     if (!state.draft.date || state.step !== 'datetime') return
     setSlotsLoading(true)
     if (state.draft.serviceId && isApiConfigured) {
-      api.getTimeSlots(state.draft.masterId, state.draft.serviceId, masters, services, state.draft.date)
+      api.getTimeSlots(state.draft.masterId, state.draft.serviceId, masters, services, state.draft.date, state.draft.variantId)
         .then(slots => { setTimeSlots(slots); setSlotsLoading(false) })
         .catch(() => { setTimeSlots(generateTimeSlots(state.draft.date!)); setSlotsLoading(false) })
     } else {
       setTimeSlots(generateTimeSlots(state.draft.date))
       setSlotsLoading(false)
     }
-  }, [state.draft.date, state.draft.serviceId, state.draft.masterId, masters, services, state.step])
+  }, [state.draft.date, state.draft.serviceId, state.draft.masterId, state.draft.variantId, masters, services, state.step])
 
   const handleClose = () => {
     onClose()
@@ -380,7 +380,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
     ) {
       setMasterCheckingId(masterId)
       try {
-        const slots = await api.getTimeSlots(masterId, state.draft.serviceId, masters, services, state.draft.date)
+        const slots = await api.getTimeSlots(masterId, state.draft.serviceId, masters, services, state.draft.date, state.draft.variantId)
         const ok = slots.some(s => s.time === state.draft.time && s.available)
         setMasterCheckingId(null)
         if (!ok) { setMasterConflict(true); return }
