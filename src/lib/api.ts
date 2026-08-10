@@ -135,6 +135,10 @@ export async function updateBookingStatus(id: string, status: Booking['status'])
   await http<void>(`/api/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
 }
 
+export async function deleteBooking(id: string): Promise<void> {
+  await http<void>(`/api/bookings/${id}`, { method: 'DELETE' })
+}
+
 // ─── CONTENT ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_CONTENT: SiteContent = {

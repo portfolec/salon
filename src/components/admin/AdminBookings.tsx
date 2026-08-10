@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useData, type Booking } from '../../context/DataContext'
 import type { BookingSource } from '../../data'
 import {
-  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, X,
+  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, X, Trash,
 } from '@phosphor-icons/react'
 
 const STATUS_LABELS: Record<Booking['status'], string> = {
@@ -31,10 +31,37 @@ const SOURCE_LABELS: Record<BookingSource, string> = {
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminBookings() {
-  const { bookings, updateBookingStatus, addBooking, services, masters } = useData()
+  const { bookings, updateBookingStatus, deleteBooking, addBooking, services, masters } = useData()
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const handleStatusChange = async (id: string, status: Booking['status']) => {
+    setUpdatingId(id)
+    try {
+      await updateBookingStatus(id, status)
+    } catch (e) {
+      console.error('[AdminBookings] status update failed', e)
+      alert('Не удалось обновить статус записи. Проверьте подключение и попробуйте снова.')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Удалить запись клиента «${name}»? Это действие нельзя отменить.`)) return
+    setDeletingId(id)
+    try {
+      await deleteBooking(id)
+    } catch (e) {
+      console.error('[AdminBookings] delete failed', e)
+      alert('Не удалось удалить запись. Проверьте подключение и попробуйте снова.')
+    } finally {
+      setDeletingId(null)
+    }
+  }
   const [form, setForm] = useState({
     serviceId: '',
     masterId: '',
@@ -264,23 +291,31 @@ export default function AdminBookings() {
 
                 <div className="flex flex-row sm:flex-col gap-2 shrink-0">
                   {booking.status === 'new' && (
-                    <button onClick={() => updateBookingStatus(booking.id, 'confirmed')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 text-xs font-medium rounded-sm hover:bg-emerald-600/30 transition-colors">
-                      <CheckCircle size={14} />Подтвердить
+                    <button onClick={() => handleStatusChange(booking.id, 'confirmed')}
+                      disabled={updatingId === booking.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 text-xs font-medium rounded-sm hover:bg-emerald-600/30 transition-colors disabled:opacity-50">
+                      <CheckCircle size={14} />{updatingId === booking.id ? 'Сохранение...' : 'Подтвердить'}
                     </button>
                   )}
                   {booking.status === 'confirmed' && (
-                    <button onClick={() => updateBookingStatus(booking.id, 'done')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600/20 text-zinc-400 border border-zinc-600/30 text-xs font-medium rounded-sm hover:bg-zinc-600/30 transition-colors">
-                      <CheckCircle size={14} />Выполнена
+                    <button onClick={() => handleStatusChange(booking.id, 'done')}
+                      disabled={updatingId === booking.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600/20 text-zinc-400 border border-zinc-600/30 text-xs font-medium rounded-sm hover:bg-zinc-600/30 transition-colors disabled:opacity-50">
+                      <CheckCircle size={14} />{updatingId === booking.id ? 'Сохранение...' : 'Выполнена'}
                     </button>
                   )}
                   {booking.status !== 'cancelled' && booking.status !== 'done' && (
-                    <button onClick={() => updateBookingStatus(booking.id, 'cancelled')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-600/30 text-xs font-medium rounded-sm hover:bg-red-600/30 transition-colors">
+                    <button onClick={() => handleStatusChange(booking.id, 'cancelled')}
+                      disabled={updatingId === booking.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-600/30 text-xs font-medium rounded-sm hover:bg-red-600/30 transition-colors disabled:opacity-50">
                       <XCircle size={14} />Отменить
                     </button>
                   )}
+                  <button onClick={() => handleDelete(booking.id, booking.name)}
+                    disabled={deletingId === booking.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700/40 text-zinc-400 border border-zinc-600/40 text-xs font-medium rounded-sm hover:bg-red-600/20 hover:text-red-400 hover:border-red-600/30 transition-colors disabled:opacity-50">
+                    <Trash size={14} />{deletingId === booking.id ? 'Удаление...' : 'Удалить'}
+                  </button>
                 </div>
               </div>
             </div>
