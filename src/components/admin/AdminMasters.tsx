@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
 import type { Master } from '../../data'
-import { Plus, PencilSimple, Trash, X, Check, CalendarBlank } from '@phosphor-icons/react'
+import { Plus, PencilSimple, Trash, X, Check, CalendarBlank, ListBullets } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 const formMotion = {
@@ -13,7 +13,7 @@ const formMotion = {
 }
 
 function emptyMaster(): Omit<Master, 'id'> {
-  return { name: '', role: '', experience: '', services: [], photo: '' }
+  return { name: '', role: '', experience: '', services: [], photo: '', disabledVariantIds: [] }
 }
 
 function MasterForm({
@@ -26,17 +26,39 @@ function MasterForm({
     experience: initial.experience ?? '',
     photo: initial.photo ?? '',
     services: initial.services ?? [],
+    disabledVariantIds: initial.disabledVariantIds ?? [],
   })
   const valid = form.name.trim() && form.role.trim()
 
-  const set = (field: keyof Omit<Master, 'id' | 'services'>, value: string) =>
+  const set = (field: keyof Omit<Master, 'id' | 'services' | 'disabledVariantIds'>, value: string) =>
     setForm(f => ({ ...f, [field]: value }))
 
   const toggleService = (id: string) =>
-    setForm(f => ({
-      ...f,
-      services: f.services.includes(id) ? f.services.filter(s => s !== id) : [...f.services, id],
-    }))
+    setForm(f => {
+      const active = f.services.includes(id)
+      const svc = services.find(s => s.id === id)
+      const variantIds = svc?.variants?.map(v => v.id) ?? []
+      return {
+        ...f,
+        services: active ? f.services.filter(s => s !== id) : [...f.services, id],
+        // drop that service's variant-toggles once the service itself is removed
+        disabledVariantIds: active
+          ? (f.disabledVariantIds ?? []).filter(v => !variantIds.includes(v))
+          : f.disabledVariantIds,
+      }
+    })
+
+  const disabledVariantIds = form.disabledVariantIds ?? []
+  const toggleVariant = (variantId: string) =>
+    setForm(f => {
+      const cur = f.disabledVariantIds ?? []
+      return {
+        ...f,
+        disabledVariantIds: cur.includes(variantId) ? cur.filter(v => v !== variantId) : [...cur, variantId],
+      }
+    })
+
+  const servicesWithVariants = services.filter(s => form.services.includes(s.id) && s.variants?.length)
 
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
@@ -89,6 +111,36 @@ function MasterForm({
           ))}
         </div>
       </div>
+
+      {servicesWithVariants.length > 0 && (
+        <div className="bg-zinc-900 border border-zinc-700 rounded-sm p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ListBullets size={15} className="text-[var(--color-accent)]" />
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Какие виды услуг выполняет</span>
+          </div>
+          {servicesWithVariants.map(s => (
+            <div key={s.id}>
+              <p className="text-xs text-zinc-500 mb-1.5">{s.name}</p>
+              <div className="flex flex-wrap gap-2">
+                {s.variants!.map(v => {
+                  const disabled = disabledVariantIds.includes(v.id)
+                  return (
+                    <button key={v.id} type="button" onClick={() => toggleVariant(v.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-sm border transition-colors
+                        ${disabled
+                          ? 'bg-zinc-900 text-zinc-500 border-zinc-700 line-through'
+                          : 'bg-emerald-600/15 text-emerald-400 border-emerald-600/30'}`}>
+                      {disabled ? <X size={12} /> : <Check size={12} />}
+                      {v.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          <p className="text-[11px] text-zinc-600">Отмеченные — мастер выполняет. Нажмите, чтобы отключить/включить вид для этого мастера.</p>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button onClick={() => valid && onSave(form, form.services)} disabled={!valid}

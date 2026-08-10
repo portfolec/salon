@@ -59,6 +59,16 @@ CREATE TABLE IF NOT EXISTS master_services (
 );
 
 -- ----------------------------------------------------------
+-- MASTER DISABLED VARIANTS (виды услуг, которые мастер не делает)
+-- Отсутствие строк для master+variant → мастер делает этот вид
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS master_disabled_variants (
+  master_id  UUID NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  variant_id UUID NOT NULL REFERENCES service_variants(id) ON DELETE CASCADE,
+  PRIMARY KEY (master_id, variant_id)
+);
+
+-- ----------------------------------------------------------
 -- MASTER WEEKLY SCHEDULE
 -- day_of_week: 0=Пн, 1=Вт, 2=Ср, 3=Чт, 4=Пт, 5=Сб, 6=Вс
 -- ----------------------------------------------------------
@@ -143,20 +153,22 @@ CREATE TABLE IF NOT EXISTS vacancies (
 -- RLS — для простоты открываем anon-ключу всё
 -- В продакшене лучше ограничить write через Supabase Auth
 -- ----------------------------------------------------------
-ALTER TABLE services         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE service_variants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE masters         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE master_services ENABLE ROW LEVEL SECURITY;
+ALTER TABLE services                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_variants         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE masters                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_services          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_disabled_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_days_off ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_content    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vacancies       ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "open" ON services         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "open" ON service_variants FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "open" ON masters         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "open" ON master_services FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON services                 FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON service_variants         FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON masters                  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON master_services          FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON master_disabled_variants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_days_off FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON bookings        FOR ALL USING (true) WITH CHECK (true);

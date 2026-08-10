@@ -25,6 +25,8 @@ export interface Master {
   experience: string
   services: string[]
   photo: string
+  /** Variant ids (from services this master offers) that this master does NOT do. Empty/absent = does all variants. */
+  disabledVariantIds?: string[]
 }
 
 export interface TimeSlot {

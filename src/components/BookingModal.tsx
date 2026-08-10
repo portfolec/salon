@@ -326,21 +326,37 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
   const currentBuildStep = stepToBuildStep(state.step)
   const buildStepIndex = currentBuildStep ? order.indexOf(currentBuildStep) : -1
 
+/** A service "counts" for a master only if the master does at least one of its variants (or it has none). */
+  function masterOffersService(master: typeof masters[number], service: typeof services[number]) {
+    if (!master.services.includes(service.id)) return false
+    if (!service.variants?.length) return true
+    return service.variants.some(v => !master.disabledVariantIds?.includes(v.id))
+  }
+
   const relevantMasters = state.draft.serviceId
-    ? masters.filter(m => m.services.includes(state.draft.serviceId!))
+    ? masters.filter(m =>
+        m.services.includes(state.draft.serviceId!) &&
+        (!state.draft.variantId || !m.disabledVariantIds?.includes(state.draft.variantId)),
+      )
     : masters
 
-  const preselectedMaster = state.preselectedMasterId
-    ? masters.find(m => m.id === state.preselectedMasterId)
-    : undefined
+  // The master is already known before the service step in the "master-first" flow
+  // (draft.masterId) or when the modal opened pinned to one master (preselectedMasterId).
+  const masterKnownBeforeService = order.indexOf('master') < order.indexOf('service')
+  const activeMasterId = state.preselectedMasterId ?? (masterKnownBeforeService ? state.draft.masterId : null)
+  const activeMaster = activeMasterId ? masters.find(m => m.id === activeMasterId) : undefined
 
-  const selectableServices = preselectedMaster
-    ? services.filter(s => preselectedMaster.services.includes(s.id))
+  const selectableServices = activeMaster
+    ? services.filter(s => masterOffersService(activeMaster, s))
     : services
 
   const currentService = state.draft.serviceId
     ? services.find(s => s.id === state.draft.serviceId)
     : undefined
+
+  const availableVariants = activeMaster
+    ? (currentService?.variants ?? []).filter(v => !activeMaster.disabledVariantIds?.includes(v.id))
+    : (currentService?.variants ?? [])
 
   const isDatetimeLastStep = order.indexOf('datetime') === order.length - 1
   const isMasterLastStep = order.indexOf('master') === order.length - 1
@@ -556,12 +572,12 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
 
                   {state.step === 'service' && (
                     <div className="p-6">
-                      {preselectedMaster ? (
+                      {activeMaster ? (
                         <div className="flex items-center gap-3 mb-5 px-4 py-3 bg-[var(--color-surface)]" style={{ borderRadius: 'var(--radius-card)' }}>
-                          <img src={preselectedMaster.photo || 'https://picsum.photos/seed/avatar/80/80'} alt={preselectedMaster.name}
+                          <img src={activeMaster.photo || 'https://picsum.photos/seed/avatar/80/80'} alt={activeMaster.name}
                             className="w-10 h-10 object-cover shrink-0 rounded-full" />
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-[var(--color-ink)] truncate">{preselectedMaster.name}</p>
+                            <p className="text-sm font-medium text-[var(--color-ink)] truncate">{activeMaster.name}</p>
                             <p className="text-xs text-[var(--color-ink-tertiary)]">Выберите услугу у этого мастера</p>
                           </div>
                         </div>
@@ -573,7 +589,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                           В записи уже {state.cart.length}: можно добавить ещё к другому мастеру
                         </p>
                       )}
-                      {!state.cart.length && !preselectedMaster && (
+                      {!state.cart.length && !activeMaster && (
                         <p className="text-xs text-[var(--color-ink-tertiary)] mb-5">
                           Можно записаться сразу на несколько услуг к разным мастерам
                         </p>
@@ -612,7 +628,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                         Выберите вид услуги «{currentService.name}»:
                       </p>
                       <div className="space-y-2">
-                        {(currentService.variants ?? []).map(v => (
+                        {availableVariants.map(v => (
                           <button key={v.id}
                             onClick={() => dispatch({ type: 'SELECT_VARIANT', id: v.id, name: v.name })}
                             className="w-full flex items-center justify-between px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors duration-150"
