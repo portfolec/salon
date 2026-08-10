@@ -228,7 +228,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           to_email:     notificationEmail,
           client_name:  b.name,
           client_phone: b.phone,
-          service:      b.service,
+          service:      b.variantName ? `${b.service} (${b.variantName})` : b.service,
           master:       b.master ?? 'Любой мастер',
           date:         b.date,
           time:         b.time,

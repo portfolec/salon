@@ -97,6 +97,15 @@ export default function Services({ onBooking }: ServicesProps) {
                       <span className="text-xs text-[var(--color-ink-tertiary)]">{svc.duration}</span>
                     </div>
                     <p className="mt-1 text-sm text-[var(--color-ink-secondary)] leading-relaxed">{svc.description}</p>
+                    {!!svc.variants?.length && (
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {svc.variants.map(v => (
+                          <span key={v.id} className="text-[11px] px-2 py-0.5 border border-[rgba(26,26,26,0.12)] text-[var(--color-ink-tertiary)] rounded-sm">
+                            {v.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Price + arrow */}

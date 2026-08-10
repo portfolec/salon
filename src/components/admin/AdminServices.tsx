@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
-import type { Service } from '../../data'
-import { Plus, PencilSimple, Trash, X, Check, Clock } from '@phosphor-icons/react'
+import type { Service, ServiceVariant } from '../../data'
+import { Plus, PencilSimple, Trash, X, Check, Clock, ListBullets } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 const formMotion = {
@@ -13,7 +13,11 @@ const formMotion = {
 }
 
 function emptyService(): Omit<Service, 'id'> {
-  return { name: '', description: '', priceFrom: 0, duration: '', durationMinutes: 60 }
+  return { name: '', description: '', priceFrom: 0, duration: '', durationMinutes: 60, variants: [] }
+}
+
+function emptyVariant(): ServiceVariant {
+  return { id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: '' }
 }
 
 function ServiceForm({
@@ -25,11 +29,19 @@ function ServiceForm({
     priceFrom: initial.priceFrom ?? 0,
     duration: initial.duration ?? '',
     durationMinutes: initial.durationMinutes ?? 60,
+    variants: initial.variants ?? [],
   })
   const valid = form.name.trim() && form.priceFrom > 0
 
   const set = (field: keyof typeof form, value: string | number) =>
     setForm(f => ({ ...f, [field]: value }))
+
+  const variants = form.variants ?? []
+  const setVariants = (next: ServiceVariant[]) => setForm(f => ({ ...f, variants: next }))
+  const addVariant = () => setVariants([...variants, emptyVariant()])
+  const updateVariant = (id: string, patch: Partial<ServiceVariant>) =>
+    setVariants(variants.map(v => v.id === id ? { ...v, ...patch } : v))
+  const removeVariant = (id: string) => setVariants(variants.filter(v => v.id !== id))
 
   return (
     <div className="bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
@@ -81,6 +93,50 @@ function ServiceForm({
           </div>
         </div>
       </div>
+
+      {/* Variants / subcategories block */}
+      <div className="bg-zinc-900 border border-zinc-700 rounded-sm p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ListBullets size={15} className="text-[var(--color-accent)]" />
+            <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Виды услуги (необязательно)</span>
+          </div>
+          <button type="button" onClick={addVariant}
+            className="flex items-center gap-1 text-xs text-[var(--color-accent-light)] hover:text-white transition-colors">
+            <Plus size={12} weight="bold" />Добавить вид
+          </button>
+        </div>
+        {variants.length === 0 ? (
+          <p className="text-[11px] text-zinc-600">
+            Например, у «Стрижки» может быть два вида: «Под машинку» и «Ножницами» — со своей ценой и временем.
+            Если видов нет, клиент выбирает услугу целиком.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {variants.map(v => (
+              <div key={v.id} className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_auto] gap-2 items-start bg-zinc-800 border border-zinc-700 rounded-sm p-2.5">
+                <input value={v.name} onChange={e => updateVariant(v.id, { name: e.target.value })}
+                  placeholder="Под машинку"
+                  className="w-full px-2.5 py-2 text-xs bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors" />
+                <input type="number" value={v.priceFrom ?? ''}
+                  onChange={e => updateVariant(v.id, { priceFrom: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="Цена, ₽"
+                  className="w-full px-2.5 py-2 text-xs bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors" />
+                <input type="number" value={v.durationMinutes ?? ''}
+                  onChange={e => updateVariant(v.id, { durationMinutes: e.target.value ? parseInt(e.target.value) : undefined })}
+                  placeholder="Мин."
+                  className="w-full px-2.5 py-2 text-xs bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors" />
+                <button type="button" onClick={() => removeVariant(v.id)}
+                  className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-700 rounded-sm transition-colors shrink-0 justify-self-end sm:justify-self-auto">
+                  <Trash size={14} />
+                </button>
+              </div>
+            ))}
+            <p className="text-[11px] text-zinc-600">Пустые поля цены/времени — вид использует значения самой услуги.</p>
+          </div>
+        )}
+      </div>
+
       <div className="flex gap-2 pt-1">
         <button onClick={() => valid && onSave(form)} disabled={!valid}
           className="flex items-center gap-1.5 px-4 py-2 bg-[var(--color-accent)] text-white text-xs font-medium rounded-sm hover:bg-[var(--color-accent-light)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
@@ -162,6 +218,15 @@ export default function AdminServices() {
                         )}
                         {svc.description && <span className="text-xs text-zinc-500 truncate max-w-xs">{svc.description}</span>}
                       </div>
+                      {!!svc.variants?.length && (
+                        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                          {svc.variants.map(v => (
+                            <span key={v.id} className="text-[11px] px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-400 rounded-sm">
+                              {v.name}{v.priceFrom ? ` · от ${v.priceFrom.toLocaleString('ru-RU')} ₽` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button onClick={() => { setEditingId(svc.id); setAdding(false) }}

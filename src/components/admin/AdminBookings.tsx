@@ -308,7 +308,9 @@ export default function AdminBookings() {
                     </div>
                     <div className="flex items-center gap-2 text-zinc-300">
                       <Clock size={14} className="text-zinc-500 shrink-0" />
-                      <span>{booking.service}{booking.master ? ` — ${booking.master}` : ''}</span>
+                      <span>
+                        {booking.service}{booking.variantName ? ` (${booking.variantName})` : ''}{booking.master ? ` — ${booking.master}` : ''}
+                      </span>
                     </div>
                   </div>
                   {booking.comment && (

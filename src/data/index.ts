@@ -1,3 +1,10 @@
+export interface ServiceVariant {
+  id: string
+  name: string
+  priceFrom?: number
+  durationMinutes?: number
+}
+
 export interface Service {
   id: string
   name: string
@@ -7,6 +14,8 @@ export interface Service {
   durationMinutes?: number
   active?: boolean
   sortOrder?: number
+  /** Optional sub-categories of this service, e.g. "под машинку" / "ножницами" for a haircut. */
+  variants?: ServiceVariant[]
 }
 
 export interface Master {
@@ -48,6 +57,7 @@ export interface Booking {
   createdAt: string
   service: string
   serviceId?: string
+  variantName?: string | null
   master: string | null
   masterId?: string | null
   date: string

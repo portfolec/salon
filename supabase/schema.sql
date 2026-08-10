@@ -21,6 +21,20 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 -- ----------------------------------------------------------
+-- SERVICE VARIANTS (subcategories, e.g. "под машинку" / "ножницами")
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS service_variants (
+  id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  service_id        UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+  name              TEXT NOT NULL,
+  price_from        INTEGER,
+  duration_minutes  INTEGER,
+  sort_order        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_variants_service_id ON service_variants(service_id);
+
+-- ----------------------------------------------------------
 -- MASTERS
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS masters (
@@ -89,6 +103,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at       TIMESTAMPTZ DEFAULT NOW(),
   service_id       UUID REFERENCES services(id) ON DELETE SET NULL,
   service_name     TEXT NOT NULL DEFAULT '',
+  variant_name     TEXT NOT NULL DEFAULT '',
   master_id        UUID REFERENCES masters(id)  ON DELETE SET NULL,
   master_name      TEXT NOT NULL DEFAULT '',
   date             DATE NOT NULL,
@@ -128,7 +143,8 @@ CREATE TABLE IF NOT EXISTS vacancies (
 -- RLS — для простоты открываем anon-ключу всё
 -- В продакшене лучше ограничить write через Supabase Auth
 -- ----------------------------------------------------------
-ALTER TABLE services        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE services         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE masters         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
@@ -137,7 +153,8 @@ ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_content    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vacancies       ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "open" ON services        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON services         FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON service_variants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON masters         FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_services FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
