@@ -34,7 +34,7 @@ export default function Hero({ onBooking }: HeroProps) {
   const zoomBg = !reduce && isDesktop
 
   return (
-    <section className="relative min-h-[100dvh] overflow-hidden">
+    <section className="relative min-h-[100svh] overflow-hidden">
       <motion.div
         className="absolute inset-0"
         initial={zoomBg ? { scale: 1.06 } : false}
@@ -63,7 +63,7 @@ export default function Hero({ onBooking }: HeroProps) {
       />
 
       {/* Content — each element staggers in independently */}
-      <div className="relative z-10 min-h-[100dvh] flex flex-col justify-between px-6 md:px-14 lg:px-20 xl:px-28 pt-28 pb-12">
+      <div className="relative z-10 min-h-[100svh] flex flex-col justify-between px-6 md:px-14 lg:px-20 xl:px-28 pt-28 pb-12">
         <div className="flex-1 flex flex-col justify-center max-w-2xl">
           {/* Eyebrow */}
           <motion.p {...fadeUp(0.1)}

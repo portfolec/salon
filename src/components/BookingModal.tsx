@@ -15,6 +15,7 @@ interface BookingModalProps {
   open: boolean
   onClose: () => void
   initialServiceId?: string
+  initialMasterId?: string
 }
 
 type BuildStep = 'service' | 'master' | 'datetime'
@@ -38,6 +39,7 @@ interface Draft {
 interface State {
   step: Step
   draft: Draft
+  preselectedMasterId: string | null
   cart: CartItem[]
   name: string
   phone: string
@@ -64,17 +66,19 @@ type Action =
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_DONE' }
   | { type: 'RESET' }
-  | { type: 'INIT_SERVICE'; id: string | undefined }
+  | { type: 'INIT'; serviceId: string | undefined; masterId: string | undefined }
 
 function emptyDraft(serviceId: string | null = null): Draft {
   return { serviceId, masterId: null, date: null, time: null }
 }
 
-function init(initialServiceId?: string): State {
+function init(initialServiceId?: string, initialMasterId?: string): State {
   const today = new Date()
+  const preselectedMasterId = !initialServiceId && initialMasterId ? initialMasterId : null
   return {
     step: initialServiceId ? 'master' : 'service',
-    draft: emptyDraft(initialServiceId ?? null),
+    draft: { ...emptyDraft(initialServiceId ?? null), masterId: preselectedMasterId },
+    preselectedMasterId,
     cart: [],
     name: '',
     phone: '',
@@ -89,13 +93,15 @@ function init(initialServiceId?: string): State {
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'SELECT_SERVICE':
+    case 'SELECT_SERVICE': {
+      const masterId = state.preselectedMasterId
       return {
         ...state,
-        draft: { ...emptyDraft(action.id) },
-        step: 'master',
+        draft: { ...emptyDraft(action.id), masterId },
+        step: masterId ? 'datetime' : 'master',
         errors: {},
       }
+    }
     case 'SELECT_MASTER':
       return {
         ...state,
@@ -127,7 +133,7 @@ function reducer(state: State, action: Action): State {
     case 'REMOVE_FROM_CART':
       return { ...state, cart: state.cart.filter(i => i.id !== action.id) }
     case 'START_ANOTHER':
-      return { ...state, draft: emptyDraft(), step: 'service', errors: {} }
+      return { ...state, draft: emptyDraft(), preselectedMasterId: null, step: 'service', errors: {} }
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value, errors: { ...state.errors, [action.field]: '' } }
     case 'SET_ERRORS':
@@ -155,8 +161,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, submitted: true, submitting: false }
     case 'RESET':
       return init()
-    case 'INIT_SERVICE':
-      return init(action.id)
+    case 'INIT':
+      return init(action.serviceId, action.masterId)
     default:
       return state
   }
@@ -169,24 +175,23 @@ const STEP_LABELS: Record<BuildStep, string> = {
 const MONTHS_RU = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
 const DAYS_RU   = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс']
 
-export default function BookingModal({ open, onClose, initialServiceId }: BookingModalProps) {
+export default function BookingModal({ open, onClose, initialServiceId, initialMasterId }: BookingModalProps) {
   const { services, masters, addBooking } = useData()
-  const [state, dispatch] = useReducer(reducer, undefined, () => init(initialServiceId))
+  const [state, dispatch] = useReducer(reducer, undefined, () => init(initialServiceId, initialMasterId))
   const prevInitId = useRef(initialServiceId)
+  const prevInitMasterId = useRef(initialMasterId)
 
   const [availDays,  setAvailDays]  = useState<Set<number>>(new Set())
   const [timeSlots,  setTimeSlots]  = useState<TimeSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
 
   useEffect(() => {
-    if (open && initialServiceId !== prevInitId.current) {
-      dispatch({ type: 'INIT_SERVICE', id: initialServiceId })
+    if (open && (initialServiceId !== prevInitId.current || initialMasterId !== prevInitMasterId.current)) {
+      dispatch({ type: 'INIT', serviceId: initialServiceId, masterId: initialMasterId })
       prevInitId.current = initialServiceId
+      prevInitMasterId.current = initialMasterId
     }
-    if (open && !state.draft.serviceId && initialServiceId) {
-      dispatch({ type: 'INIT_SERVICE', id: initialServiceId })
-    }
-  }, [open, initialServiceId])
+  }, [open, initialServiceId, initialMasterId])
 
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -230,6 +235,14 @@ export default function BookingModal({ open, onClose, initialServiceId }: Bookin
   const relevantMasters = state.draft.serviceId
     ? masters.filter(m => m.services.includes(state.draft.serviceId!))
     : masters
+
+  const preselectedMaster = state.preselectedMasterId
+    ? masters.find(m => m.id === state.preselectedMasterId)
+    : undefined
+
+  const selectableServices = preselectedMaster
+    ? services.filter(s => preselectedMaster.services.includes(s.id))
+    : services
 
   function buildCalendarGrid(): (number | null)[] {
     const firstDay = new Date(state.calYear, state.calMonth, 1)
@@ -311,7 +324,10 @@ export default function BookingModal({ open, onClose, initialServiceId }: Bookin
             <div className="flex items-center justify-between px-6 py-5 border-b border-[rgba(26,26,26,0.1)] shrink-0">
               <div className="flex items-center gap-3">
                 {buildStepIndex > 0 && !state.submitted && (
-                  <button onClick={() => dispatch({ type: 'GO_STEP', step: BUILD_STEPS[buildStepIndex - 1] })}
+                  <button onClick={() => dispatch({
+                    type: 'GO_STEP',
+                    step: state.step === 'datetime' && state.preselectedMasterId ? 'service' : BUILD_STEPS[buildStepIndex - 1],
+                  })}
                     className="text-[var(--color-ink-secondary)] hover:text-[var(--color-ink)] transition-colors" aria-label="Назад">
                     <ArrowLeft size={18} />
                   </button>
@@ -363,19 +379,30 @@ export default function BookingModal({ open, onClose, initialServiceId }: Bookin
 
                   {state.step === 'service' && (
                     <div className="p-6">
-                      <p className="text-sm text-[var(--color-ink-secondary)] mb-2">Выберите услугу:</p>
+                      {preselectedMaster ? (
+                        <div className="flex items-center gap-3 mb-5 px-4 py-3 bg-[var(--color-surface)]" style={{ borderRadius: 'var(--radius-card)' }}>
+                          <img src={preselectedMaster.photo || 'https://picsum.photos/seed/avatar/80/80'} alt={preselectedMaster.name}
+                            className="w-10 h-10 object-cover shrink-0 rounded-full" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--color-ink)] truncate">{preselectedMaster.name}</p>
+                            <p className="text-xs text-[var(--color-ink-tertiary)]">Выберите услугу у этого мастера</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[var(--color-ink-secondary)] mb-2">Выберите услугу:</p>
+                      )}
                       {state.cart.length > 0 && (
                         <p className="text-xs text-[var(--color-accent)] mb-5">
                           В записи уже {state.cart.length}: можно добавить ещё к другому мастеру
                         </p>
                       )}
-                      {!state.cart.length && (
+                      {!state.cart.length && !preselectedMaster && (
                         <p className="text-xs text-[var(--color-ink-tertiary)] mb-5">
                           Можно записаться сразу на несколько услуг к разным мастерам
                         </p>
                       )}
                       <div className="space-y-2">
-                        {services.map(svc => (
+                        {selectableServices.map(svc => (
                           <button key={svc.id} onClick={() => dispatch({ type: 'SELECT_SERVICE', id: svc.id })}
                             className="w-full flex items-center justify-between px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors duration-150"
                             style={{ borderRadius: 'var(--radius-input)' }}>

@@ -41,9 +41,11 @@ import YandexMetrika from './components/YandexMetrika'
 function SiteApp() {
   const [modalOpen, setModalOpen] = useState(false)
   const [preselectedService, setPreselectedService] = useState<string | undefined>(undefined)
+  const [preselectedMaster, setPreselectedMaster] = useState<string | undefined>(undefined)
 
-  const handleOpenBooking = (serviceId?: string) => {
+  const handleOpenBooking = (serviceId?: string, masterId?: string) => {
     setPreselectedService(serviceId)
+    setPreselectedMaster(masterId)
     setModalOpen(true)
   }
 
@@ -65,6 +67,7 @@ function SiteApp() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         initialServiceId={preselectedService}
+        initialMasterId={preselectedMaster}
       />
       <FloatingCTA onBooking={() => handleOpenBooking()} />
     </>

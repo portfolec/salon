@@ -6,7 +6,7 @@ import { useData } from '../context/DataContext'
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 interface MastersProps {
-  onBooking: (serviceId?: string) => void
+  onBooking: (serviceId?: string, masterId?: string) => void
 }
 
 export default function Masters({ onBooking }: MastersProps) {
@@ -43,7 +43,7 @@ export default function Masters({ onBooking }: MastersProps) {
               transition={{ duration: 0.5, delay: reduce ? 0 : i * 0.07, ease: EASE_OUT }}
               whileTap={{ scale: 0.98 }}
               className="group cursor-pointer"
-              onClick={() => onBooking(master.services[0])}
+              onClick={() => onBooking(undefined, master.id)}
             >
               {/* Photo */}
               <div className="relative overflow-hidden aspect-[3/4] mb-4 bg-[var(--color-surface)]">
