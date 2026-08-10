@@ -1,14 +1,15 @@
 'use client'
 import { motion, useReducedMotion } from 'motion/react'
 import { Briefcase, ArrowRight } from '@phosphor-icons/react'
-import { vacancies } from '../data'
 import { useData } from '../context/DataContext'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 export default function Vacancies() {
-  const { content } = useData()
+  const { content, vacancies } = useData()
   const reduce = useReducedMotion()
+
+  if (vacancies.length === 0) return null
 
   return (
     <section id="vacancies" className="py-24 lg:py-32 bg-[var(--color-surface-elevated)]">

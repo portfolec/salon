@@ -5,10 +5,11 @@ import {
 import emailjs from '@emailjs/browser'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import * as api from '../lib/api'
-import type { Service, Master, SiteContent, Booking } from '../data'
+import type { Service, Master, SiteContent, Booking, Vacancy } from '../data'
 import {
   services as defaultServices,
   masters  as defaultMasters,
+  vacancies as defaultVacancies,
 } from '../data'
 
 export type { Booking, SiteContent }
@@ -53,6 +54,7 @@ interface ContextValue {
   services: Service[]
   masters: Master[]
   bookings: Booking[]
+  vacancies: Vacancy[]
   content: SiteContent
   loading: boolean
   newBookingsCount: number
@@ -72,6 +74,10 @@ interface ContextValue {
   addBooking:           (b: Omit<Booking, 'id' | 'createdAt'>) => Promise<void>
   updateBookingStatus:  (id: string, status: Booking['status']) => Promise<void>
 
+  addVacancy:    (v: Omit<Vacancy, 'id'>) => Promise<void>
+  updateVacancy: (v: Vacancy) => Promise<void>
+  deleteVacancy: (id: string) => Promise<void>
+
   setContent: (c: SiteContent) => Promise<void>
 
   reload: () => Promise<void>
@@ -83,6 +89,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [services, setServices] = useState<Service[]>(defaultServices)
   const [masters,  setMasters]  = useState<Master[]>(defaultMasters)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [vacancies, setVacancies] = useState<Vacancy[]>(defaultVacancies)
   const [content,  setContentState] = useState<SiteContent>(DEFAULT_CONTENT)
   const [loading,  setLoading]  = useState(isSupabaseConfigured)
   const [dbError, setDbError] = useState<string | null>(null)
@@ -94,24 +101,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(async () => {
     if (!isDb) {
       const ls = loadLS()
-      if (ls?.services) setServices(ls.services)
-      if (ls?.masters)  setMasters(ls.masters)
-      if (ls?.bookings) setBookings(ls.bookings)
-      if (ls?.content)  setContentState(ls.content)
+      if (ls?.services)  setServices(ls.services)
+      if (ls?.masters)   setMasters(ls.masters)
+      if (ls?.bookings)  setBookings(ls.bookings)
+      if (ls?.vacancies) setVacancies(ls.vacancies)
+      if (ls?.content)   setContentState(ls.content)
       return
     }
     setLoading(true)
     setDbError(null)
     try {
-      const [svcs, msts, bkgs, cnt] = await Promise.all([
+      const [svcs, msts, bkgs, vacs, cnt] = await Promise.all([
         api.fetchServices(),
         api.fetchMasters(),
         api.fetchBookings(),
+        api.fetchVacancies(),
         api.fetchContent(),
       ])
       setServices(svcs)
       setMasters(msts)
       setBookings(bkgs)
+      setVacancies(vacs)
       setContentState(cnt as SiteContent)
       setDbOk(true)
     } catch (e) {
@@ -264,6 +274,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // ── VACANCIES ─────────────────────────────────────────────────────────────
+  const addVacancy = async (v: Omit<Vacancy, 'id'>) => {
+    if (isDb) {
+      const created = await api.createVacancy(v)
+      setVacancies(prev => [...prev, created])
+    } else {
+      const nv = { ...v, id: Date.now().toString() }
+      setVacancies(prev => { const n = [...prev, nv]; saveLS('vacancies', n); return n })
+    }
+  }
+
+  const updateVacancy = async (v: Vacancy) => {
+    if (isDb) {
+      await api.updateVacancy(v)
+      setVacancies(prev => prev.map(x => x.id === v.id ? v : x))
+    } else {
+      setVacancies(prev => { const n = prev.map(x => x.id === v.id ? v : x); saveLS('vacancies', n); return n })
+    }
+  }
+
+  const deleteVacancy = async (id: string) => {
+    if (isDb) {
+      await api.deleteVacancy(id)
+      setVacancies(prev => prev.filter(x => x.id !== id))
+    } else {
+      setVacancies(prev => { const n = prev.filter(x => x.id !== id); saveLS('vacancies', n); return n })
+    }
+  }
+
   // ── CONTENT ───────────────────────────────────────────────────────────────
   const setContent = async (c: SiteContent) => {
     setContentState(c)
@@ -278,10 +317,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      services, masters, bookings, content, loading, newBookingsCount, isDb, dbError, dbOk,
+      services, masters, bookings, vacancies, content, loading, newBookingsCount, isDb, dbError, dbOk,
       addService, updateService, deleteService,
       addMaster, updateMaster, deleteMaster,
       addBooking, updateBookingStatus,
+      addVacancy, updateVacancy, deleteVacancy,
       setContent, reload,
     }}>
       {children}

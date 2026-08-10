@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Service, Master, SiteContent, TimeSlot, Booking } from '../data'
+import type { Service, Master, SiteContent, TimeSlot, Booking, Vacancy } from '../data'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -307,6 +307,45 @@ export async function saveContent(c: SiteContent): Promise<void> {
     key, value, updated_at: new Date().toISOString(),
   }))
   const { error } = await supabase.from('site_content').upsert(rows, { onConflict: 'key' })
+  if (error) throw error
+}
+
+// ─── VACANCIES ───────────────────────────────────────────────────────────────
+
+function rowToVacancy(r: Record<string, unknown>): Vacancy {
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    description: r.description as string,
+    requirements: r.requirements as string,
+  }
+}
+
+export async function fetchVacancies(): Promise<Vacancy[]> {
+  const { data, error } = await supabase
+    .from('vacancies').select('*').eq('active', true).order('sort_order')
+  if (error) throw error
+  return (data ?? []).map(rowToVacancy)
+}
+
+export async function createVacancy(v: Omit<Vacancy, 'id'>): Promise<Vacancy> {
+  const { data, error } = await supabase.from('vacancies').insert({
+    title: v.title, description: v.description, requirements: v.requirements,
+    active: true, sort_order: 0,
+  }).select().single()
+  if (error) throw error
+  return rowToVacancy(data)
+}
+
+export async function updateVacancy(v: Vacancy): Promise<void> {
+  const { error } = await supabase.from('vacancies').update({
+    title: v.title, description: v.description, requirements: v.requirements,
+  }).eq('id', v.id)
+  if (error) throw error
+}
+
+export async function deleteVacancy(id: string): Promise<void> {
+  const { error } = await supabase.from('vacancies').update({ active: false }).eq('id', id)
   if (error) throw error
 }
 

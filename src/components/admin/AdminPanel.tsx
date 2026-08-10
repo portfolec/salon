@@ -3,21 +3,23 @@ import { useData } from '../../context/DataContext'
 import AdminBookings from './AdminBookings'
 import AdminServices from './AdminServices'
 import AdminMasters from './AdminMasters'
+import AdminVacancies from './AdminVacancies'
 import AdminContent from './AdminContent'
 import AdminSchedule from './AdminSchedule'
 import AdminNotifications from './AdminNotifications'
 import Logo from '../Logo'
 import {
   CalendarBlank, Scissors, UsersThree, TextT,
-  SignOut, List, X, ArrowSquareOut, Clock, Bell,
+  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase,
 } from '@phosphor-icons/react'
 
-type Tab = 'bookings' | 'services' | 'masters' | 'schedule' | 'content' | 'notifications'
+type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'schedule' | 'content' | 'notifications'
 
 const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank },
   { id: 'services',      label: 'Услуги',        Icon: Scissors },
   { id: 'masters',       label: 'Мастера',       Icon: UsersThree },
+  { id: 'vacancies',     label: 'Вакансии',      Icon: Briefcase },
   { id: 'schedule',      label: 'График',        Icon: Clock },
   { id: 'content',       label: 'Контент',       Icon: TextT },
   { id: 'notifications', label: 'Уведомления',   Icon: Bell },
@@ -138,6 +140,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           {activeTab === 'bookings'      && <AdminBookings />}
           {activeTab === 'services'      && <AdminServices />}
           {activeTab === 'masters'       && <AdminMasters />}
+          {activeTab === 'vacancies'     && <AdminVacancies />}
           {activeTab === 'schedule'      && <AdminSchedule />}
           {activeTab === 'content'       && <AdminContent />}
           {activeTab === 'notifications' && <AdminNotifications />}

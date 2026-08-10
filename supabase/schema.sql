@@ -111,6 +111,19 @@ CREATE TABLE IF NOT EXISTS site_content (
 );
 
 -- ----------------------------------------------------------
+-- VACANCIES
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vacancies (
+  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  title        TEXT NOT NULL,
+  description  TEXT NOT NULL DEFAULT '',
+  requirements TEXT NOT NULL DEFAULT '',
+  active       BOOLEAN NOT NULL DEFAULT true,
+  sort_order   INTEGER NOT NULL DEFAULT 0
+);
+
+-- ----------------------------------------------------------
 -- RLS — для простоты открываем anon-ключу всё
 -- В продакшене лучше ограничить write через Supabase Auth
 -- ----------------------------------------------------------
@@ -121,6 +134,7 @@ ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_days_off ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_content    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vacancies       ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "open" ON services        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON masters         FOR ALL USING (true) WITH CHECK (true);
@@ -129,6 +143,7 @@ CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_days_off FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON bookings        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON site_content    FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON vacancies       FOR ALL USING (true) WITH CHECK (true);
 
 -- ----------------------------------------------------------
 -- SEED: Services
@@ -156,4 +171,13 @@ INSERT INTO site_content (key, value) VALUES
   ('hoursSaturday', '10:00 - 19:00'),
   ('telegramUrl',   'https://t.me/stilnyaktsent'),
   ('instagramUrl',  'https://instagram.com/stilnyaktsent')
+ON CONFLICT DO NOTHING;
+
+-- ----------------------------------------------------------
+-- SEED: Vacancies
+-- ----------------------------------------------------------
+INSERT INTO vacancies (title, description, requirements, sort_order) VALUES
+  ('Мастер маникюра',       'Работа в уютном салоне с постоянным потоком клиентов и профессиональной косметикой.', 'Опыт от 1 года, аккуратность, умение работать с гель-лаком.', 1),
+  ('Парикмахер-стилист',    'Стрижки, окрашивание и укладки. Дружная команда и гибкий график.',                    'Опыт от 2 лет, портфолио работ.', 2),
+  ('Администратор салона',  'Встреча гостей, запись клиентов, поддержание сервиса на высоком уровне.',             'Коммуникабельность, опыт работы с людьми приветствуется.', 3)
 ON CONFLICT DO NOTHING;
