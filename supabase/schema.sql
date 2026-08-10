@@ -98,7 +98,8 @@ CREATE TABLE IF NOT EXISTS bookings (
   client_phone     TEXT NOT NULL,
   comment          TEXT NOT NULL DEFAULT '',
   status           TEXT NOT NULL DEFAULT 'new'
-                     CHECK (status IN ('new','confirmed','done','cancelled'))
+                     CHECK (status IN ('new','confirmed','done','cancelled')),
+  source           TEXT NOT NULL DEFAULT 'website'
 );
 
 -- ----------------------------------------------------------

@@ -8,7 +8,7 @@ import {
 import { useData } from '../context/DataContext'
 import * as api from '../lib/api'
 import type { TimeSlot } from '../data'
-import { isSupabaseConfigured } from '../lib/supabase'
+import { isApiConfigured } from '../lib/backend'
 import { generateTimeSlots, getAvailableDates } from '../data'
 
 interface BookingModalProps {
@@ -196,7 +196,7 @@ export default function BookingModal({ open, onClose, initialServiceId }: Bookin
 
   useEffect(() => {
     if (!state.draft.serviceId || state.step !== 'datetime') return
-    if (isSupabaseConfigured) {
+    if (isApiConfigured) {
       api.getAvailableDays(state.draft.masterId, state.draft.serviceId, masters, state.calYear, state.calMonth)
         .then(days => setAvailDays(days))
         .catch(() => setAvailDays(getAvailableDates(state.calYear, state.calMonth)))
@@ -208,7 +208,7 @@ export default function BookingModal({ open, onClose, initialServiceId }: Bookin
   useEffect(() => {
     if (!state.draft.date || !state.draft.serviceId || state.step !== 'datetime') return
     setSlotsLoading(true)
-    if (isSupabaseConfigured) {
+    if (isApiConfigured) {
       api.getTimeSlots(state.draft.masterId, state.draft.serviceId, masters, services, state.draft.date)
         .then(slots => { setTimeSlots(slots); setSlotsLoading(false) })
         .catch(() => { setTimeSlots(generateTimeSlots(state.draft.date!)); setSlotsLoading(false) })

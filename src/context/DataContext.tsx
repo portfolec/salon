@@ -3,7 +3,7 @@ import {
   useEffect, useCallback, ReactNode,
 } from 'react'
 import emailjs from '@emailjs/browser'
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { isApiConfigured } from '../lib/backend'
 import * as api from '../lib/api'
 import type { Service, Master, SiteContent, Booking, Vacancy } from '../data'
 import {
@@ -32,7 +32,7 @@ const DEFAULT_CONTENT: SiteContent = {
   notificationEmail: '',
 }
 
-// ─── localStorage fallback (when Supabase not configured) ─────────────────────
+// ─── localStorage fallback (when API is not configured) ──────────────────────
 
 const LS_KEY = 'sa_data_v2'
 function loadLS() {
@@ -91,11 +91,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [vacancies, setVacancies] = useState<Vacancy[]>(defaultVacancies)
   const [content,  setContentState] = useState<SiteContent>(DEFAULT_CONTENT)
-  const [loading,  setLoading]  = useState(isSupabaseConfigured)
+  const [loading,  setLoading]  = useState(isApiConfigured)
   const [dbError, setDbError] = useState<string | null>(null)
   const [dbOk, setDbOk] = useState(false)
 
-  const isDb = isSupabaseConfigured
+  const isDb = isApiConfigured
 
   // ── load all data ──────────────────────────────────────────────────────────
   const reload = useCallback(async () => {
@@ -139,41 +139,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { reload() }, [reload])
 
-  // ── realtime: new bookings ─────────────────────────────────────────────────
+  // ── polling: pick up new bookings from other channels/tabs ─────────────────
   useEffect(() => {
     if (!isDb) return
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    try {
-      channel = supabase
-        .channel('bookings-rt')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, payload => {
-          try {
-            const b = payload.new as Record<string, unknown>
-            setBookings(prev => [{
-              id: b.id as string, createdAt: b.created_at as string,
-              service: b.service_name as string, serviceId: b.service_id as string,
-              master: b.master_name as string, masterId: b.master_id as string,
-              date: b.date as string, time: (b.time as string).slice(0, 5),
-              name: b.client_name as string, phone: b.client_phone as string,
-              comment: b.comment as string, status: b.status as Booking['status'],
-            }, ...prev])
-          } catch (e) { console.warn('[Realtime] INSERT parse error', e) }
-        })
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings' }, payload => {
-          try {
-            const b = payload.new as Record<string, unknown>
-            setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: b.status as Booking['status'] } : x))
-          } catch (e) { console.warn('[Realtime] UPDATE parse error', e) }
-        })
-        .subscribe(() => { /* realtime connected */ })
-    } catch (e) {
-      console.warn('[Realtime] failed to set up channel (non-fatal):', e)
-    }
-    return () => {
-      if (channel) {
-        try { supabase.removeChannel(channel) } catch {}
-      }
-    }
+    const interval = setInterval(() => {
+      if (document.hidden) return
+      api.fetchBookings().then(setBookings).catch(e => console.warn('[Polling] bookings refresh failed', e))
+    }, 20000)
+    return () => clearInterval(interval)
   }, [isDb])
 
   // ── SERVICES ──────────────────────────────────────────────────────────────

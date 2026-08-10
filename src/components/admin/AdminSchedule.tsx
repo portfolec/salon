@@ -154,7 +154,7 @@ export default function AdminSchedule() {
         </div>
         <h3 className="text-base font-medium text-white mb-2">Требуется база данных</h3>
         <p className="text-sm text-zinc-500 max-w-sm">
-          Управление расписанием доступно только при подключении Supabase.
+          Управление расписанием доступно только при подключении к базе данных.
         </p>
       </div>
     )
