@@ -25,13 +25,18 @@ export default function Hero({ onBooking }: HeroProps) {
     return () => mq.removeEventListener('change', update)
   }, [])
 
-  const fadeUp = (delay: number) => ({
-    initial: { opacity: 0, y: reduce ? 0 : 20 },
-    animate: { opacity: 1, y: 0 },
-    transition: { duration: reduce ? 0.01 : 0.75, ease: EASE_OUT, delay: reduce ? 0 : delay },
-  })
-
   const zoomBg = !reduce && isDesktop
+
+  const container = {
+    hidden: {},
+    show: {
+      transition: { staggerChildren: reduce ? 0 : 0.12, delayChildren: reduce ? 0 : 0.15 },
+    },
+  }
+  const item = {
+    hidden: { opacity: 0, y: reduce ? 0 : 14 },
+    show: { opacity: 1, y: 0, transition: { duration: reduce ? 0.01 : 0.65, ease: EASE_OUT } },
+  }
 
   return (
     <section className="relative min-h-[100svh] overflow-hidden">
@@ -54,7 +59,14 @@ export default function Hero({ onBooking }: HeroProps) {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'linear-gradient(105deg, rgba(10,10,10,0.82) 0%, rgba(10,10,10,0.55) 45%, rgba(10,10,10,0.18) 75%, rgba(10,10,10,0.08) 100%)',
+          background: 'linear-gradient(105deg, rgba(10,10,10,0.88) 0%, rgba(10,10,10,0.68) 45%, rgba(10,10,10,0.3) 75%, rgba(10,10,10,0.14) 100%)',
+        }}
+      />
+      {/* Extra vertical vignette so text always reads over the photo, regardless of layout width */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'linear-gradient(180deg, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.15) 30%, rgba(10,10,10,0.35) 65%, rgba(10,10,10,0.75) 100%)',
         }}
       />
       <div
@@ -62,29 +74,37 @@ export default function Hero({ onBooking }: HeroProps) {
         style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.6), transparent)' }}
       />
 
-      {/* Content — each element staggers in independently */}
+      {/* Content — animates in as one coordinated, staggered sequence */}
       <div className="relative z-10 min-h-[100svh] flex flex-col justify-between px-6 md:px-14 lg:px-20 xl:px-28 pt-28 pb-12">
-        <div className="flex-1 flex flex-col justify-center max-w-2xl">
+        <motion.div
+          className="flex-1 flex flex-col justify-center max-w-2xl"
+          initial="hidden"
+          animate="show"
+          variants={container}
+        >
           {/* Eyebrow */}
-          <motion.p {...fadeUp(0.1)}
-            className="text-xs font-medium tracking-[0.25em] uppercase text-[rgba(255,255,255,0.55)] mb-6">
+          <motion.p variants={item}
+            className="text-xs font-medium tracking-[0.25em] uppercase text-white/70 mb-6"
+            style={{ textShadow: '0 1px 12px rgba(0,0,0,0.5)' }}>
             Стильный Акцент - Центр красоты
           </motion.p>
 
           {/* Headline */}
-          <motion.h1 {...fadeUp(0.2)}
-            className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05] tracking-tight text-white mb-7">
+          <motion.h1 variants={item}
+            className="font-display text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-[1.05] tracking-tight text-white mb-7"
+            style={{ textShadow: '0 2px 24px rgba(0,0,0,0.45)' }}>
             {content.heroTitle}
           </motion.h1>
 
           {/* Subtitle */}
-          <motion.p {...fadeUp(0.32)}
-            className="text-sm md:text-base text-[rgba(255,255,255,0.65)] leading-relaxed max-w-[44ch] mb-10">
+          <motion.p variants={item}
+            className="text-sm md:text-base text-white/80 leading-relaxed max-w-[44ch] mb-10"
+            style={{ textShadow: '0 1px 16px rgba(0,0,0,0.5)' }}>
             {content.heroSubtitle}
           </motion.p>
 
           {/* CTA buttons */}
-          <motion.div {...fadeUp(0.44)} className="flex flex-col sm:flex-row gap-3">
+          <motion.div variants={item} className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onBooking}
               className="cta-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 text-white text-sm font-medium tracking-wide"
@@ -101,7 +121,7 @@ export default function Hero({ onBooking }: HeroProps) {
               Наши услуги
             </a>
           </motion.div>
-        </div>
+        </motion.div>
 
       </div>
     </section>
