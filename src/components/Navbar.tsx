@@ -81,15 +81,10 @@ export default function Navbar({ onBooking }: NavbarProps) {
             </a>
             <button
               onClick={onBooking}
-              className="cta-shimmer text-[12px] font-medium tracking-[0.16em] uppercase px-5 py-2.5 active:scale-[0.98]"
-              style={{
-                backgroundColor: scrolled ? 'var(--color-accent)' : 'rgba(139,107,74,0.85)',
-                color: '#fff',
-                border: scrolled ? 'none' : '1px solid rgba(255,255,255,0.35)',
-                borderRadius: 'var(--radius-btn)',
-              }}
+              className="cta-shimmer text-[12px] font-medium tracking-[0.16em] uppercase px-5 py-2.5 text-white"
+              style={{ borderRadius: 'var(--radius-btn)' }}
             >
-              Записаться
+              <span>Записаться</span>
             </button>
           </div>
 
@@ -172,12 +167,9 @@ export default function Navbar({ onBooking }: NavbarProps) {
                   <button
                     onClick={() => { setMenuOpen(false); onBooking() }}
                     className="cta-shimmer w-full py-3.5 text-white text-[13px] font-medium tracking-[0.18em] uppercase"
-                    style={{
-                      backgroundColor: 'var(--color-accent)',
-                      borderRadius: 'var(--radius-btn, 0)',
-                    }}
+                    style={{ borderRadius: 'var(--radius-btn, 0)' }}
                   >
-                    Записаться
+                    <span>Записаться</span>
                   </button>
                   <a
                     href={`tel:${content.phone.replace(/\D/g, '')}`}

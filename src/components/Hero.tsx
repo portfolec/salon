@@ -87,10 +87,10 @@ export default function Hero({ onBooking }: HeroProps) {
           <motion.div {...fadeUp(0.44)} className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onBooking}
-              className="cta-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 text-white text-sm font-medium tracking-wide active:scale-[0.97]"
+              className="cta-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 text-white text-sm font-medium tracking-wide"
               style={{ borderRadius: 'var(--radius-btn)' }}
             >
-              Записаться
+              <span>Записаться</span>
               <ArrowRight size={16} weight="bold" />
             </button>
             <a

@@ -20,20 +20,20 @@ export default function Logo({ size = 'md', dark = false }: LogoProps) {
     >
       <text
         x="66"
-        y="30"
+        y="28"
         textAnchor="middle"
         fontFamily="Playfair Display, serif"
-        fontSize="34"
+        fontSize="26"
         fontWeight="600"
         letterSpacing="-1"
         fill={color}
       >
         СА
       </text>
-      <line x1="18" y1="38" x2="114" y2="38" stroke={accentColor} strokeWidth="1" opacity="0.7" />
+      <line x1="28" y1="36" x2="104" y2="36" stroke={accentColor} strokeWidth="1" opacity="0.7" />
       <text
         x="66"
-        y="52"
+        y="50"
         textAnchor="middle"
         fontFamily="Outfit, sans-serif"
         fontSize="8.5"
@@ -45,7 +45,7 @@ export default function Logo({ size = 'md', dark = false }: LogoProps) {
       </text>
       <text
         x="66"
-        y="66"
+        y="64"
         textAnchor="middle"
         fontFamily="Playfair Display, Georgia, serif"
         fontStyle="italic"
