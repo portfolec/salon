@@ -1,7 +1,16 @@
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
 import type { Service } from '../../data'
 import { Plus, PencilSimple, Trash, X, Check, Clock } from '@phosphor-icons/react'
+
+const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
+const formMotion = {
+  initial: { opacity: 0, height: 0, y: -8 },
+  animate: { opacity: 1, height: 'auto', y: 0 },
+  exit: { opacity: 0, height: 0, y: -8 },
+  transition: { duration: 0.25, ease: EASE_OUT },
+}
 
 function emptyService(): Omit<Service, 'id'> {
   return { name: '', description: '', priceFrom: 0, duration: '', durationMinutes: 60 }
@@ -98,61 +107,78 @@ export default function AdminServices() {
           <h2 className="text-xl font-semibold text-white mb-1">Услуги</h2>
           <p className="text-sm text-zinc-500">{services.length} услуг в каталоге</p>
         </div>
-        <button onClick={() => { setAdding(true); setEditingId(null) }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] active:scale-[0.98] transition-all">
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setAdding(true); setEditingId(null) }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] transition-colors">
           <Plus size={16} weight="bold" />Добавить услугу
-        </button>
+        </motion.button>
       </div>
 
       <div className="space-y-3">
-        {adding && (
-          <ServiceForm
-            initial={emptyService()}
-            onSave={async s => { await addService(s); setAdding(false) }}
-            onCancel={() => setAdding(false)}
-          />
-        )}
-
-        {services.map(svc => (
-          <div key={svc.id}>
-            {editingId === svc.id ? (
+        <AnimatePresence initial={false}>
+          {adding && (
+            <motion.div key="add-form" style={{ overflow: 'hidden' }} {...formMotion}>
               <ServiceForm
-                initial={svc}
-                onSave={async s => { await updateService({ ...svc, ...s }); setEditingId(null) }}
-                onCancel={() => setEditingId(null)}
+                initial={emptyService()}
+                onSave={async s => { await addService(s); setAdding(false) }}
+                onCancel={() => setAdding(false)}
               />
-            ) : (
-              <div className="flex items-center justify-between bg-zinc-800 border border-zinc-700 rounded-sm px-5 py-4 gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-3 flex-wrap">
-                    <span className="font-medium text-white text-sm">{svc.name}</span>
-                    <span className="text-[var(--color-accent)] text-sm font-medium">от {svc.priceFrom.toLocaleString('ru-RU')} ₽</span>
-                    {svc.duration && <span className="text-xs text-zinc-500">{svc.duration}</span>}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {svc.durationMinutes && (
-                      <span className="flex items-center gap-1 text-xs text-zinc-400">
-                        <Clock size={11} className="text-[var(--color-accent)]" />
-                        {svc.durationMinutes} мин в расписании
-                      </span>
-                    )}
-                    {svc.description && <span className="text-xs text-zinc-500 truncate max-w-xs">{svc.description}</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => { setEditingId(svc.id); setAdding(false) }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-sm transition-colors">
-                    <PencilSimple size={16} />
-                  </button>
-                  <button onClick={() => confirm('Удалить услугу?') && deleteService(svc.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700 rounded-sm transition-colors">
-                    <Trash size={16} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {services.map((svc, i) => (
+            <motion.div key={svc.id} layout="position"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.35, delay: i * 0.04, ease: EASE_OUT }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {editingId === svc.id ? (
+                  <motion.div key="edit" style={{ overflow: 'hidden' }} {...formMotion}>
+                    <ServiceForm
+                      initial={svc}
+                      onSave={async s => { await updateService({ ...svc, ...s }); setEditingId(null) }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div key="view"
+                    whileHover={{ y: -1 }}
+                    className="flex items-center justify-between bg-zinc-800 border border-zinc-700 rounded-sm px-5 py-4 gap-4 transition-colors hover:border-zinc-600">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-3 flex-wrap">
+                        <span className="font-medium text-white text-sm">{svc.name}</span>
+                        <span className="text-[var(--color-accent)] text-sm font-medium">от {svc.priceFrom.toLocaleString('ru-RU')} ₽</span>
+                        {svc.duration && <span className="text-xs text-zinc-500">{svc.duration}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {svc.durationMinutes && (
+                          <span className="flex items-center gap-1 text-xs text-zinc-400">
+                            <Clock size={11} className="text-[var(--color-accent)]" />
+                            {svc.durationMinutes} мин в расписании
+                          </span>
+                        )}
+                        {svc.description && <span className="text-xs text-zinc-500 truncate max-w-xs">{svc.description}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setEditingId(svc.id); setAdding(false) }}
+                        className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-sm transition-colors">
+                        <PencilSimple size={16} />
+                      </button>
+                      <button onClick={() => confirm('Удалить услугу?') && deleteService(svc.id)}
+                        className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700 rounded-sm transition-colors">
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   )

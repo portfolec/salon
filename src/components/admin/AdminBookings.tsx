@@ -1,9 +1,18 @@
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useData, type Booking } from '../../context/DataContext'
 import type { BookingSource } from '../../data'
 import {
-  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, X, Trash,
+  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, Trash,
 } from '@phosphor-icons/react'
+
+const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
+const formMotion = {
+  initial: { opacity: 0, height: 0, y: -8 },
+  animate: { opacity: 1, height: 'auto', y: 0 },
+  exit: { opacity: 0, height: 0, y: -8 },
+  transition: { duration: 0.25, ease: EASE_OUT },
+}
 
 const STATUS_LABELS: Record<Booking['status'], string> = {
   new: 'Новая',
@@ -137,17 +146,22 @@ export default function AdminBookings() {
           <h2 className="text-xl font-semibold text-white mb-1">Заявки на запись</h2>
           <p className="text-sm text-zinc-500">Всего заявок: {bookings.length}. Записи с сайта и из админки сразу занимают слот в графике.</p>
         </div>
-        <button
+        <motion.button
+          whileTap={{ scale: 0.97 }}
           onClick={() => setShowForm(v => !v)}
           className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] transition-colors shrink-0"
         >
-          {showForm ? <X size={16} /> : <Plus size={16} />}
+          <motion.span animate={{ rotate: showForm ? 45 : 0 }} transition={{ duration: 0.2 }}>
+            <Plus size={16} />
+          </motion.span>
           {showForm ? 'Закрыть' : 'Добавить запись'}
-        </button>
+        </motion.button>
       </div>
 
-      {showForm && (
-        <div className="mb-8 bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
+      <AnimatePresence initial={false}>
+        {showForm && (
+        <motion.div key="add-booking-form" style={{ overflow: 'hidden' }} {...formMotion}
+          className="mb-8 bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
           <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Новая запись в график</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -226,29 +240,42 @@ export default function AdminBookings() {
           >
             {saving ? 'Сохранение...' : 'Сохранить в график'}
           </button>
-        </div>
-      )}
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex flex-wrap gap-2 mb-6">
         {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
-              ${filter === f ? 'bg-[var(--color-accent)] text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
+          <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
+            className={`relative px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
+              ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
+            {filter === f && (
+              <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
+                transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+            )}
             {f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})
-          </button>
+          </motion.button>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center py-20 text-center">
           <CalendarBlank size={48} weight="thin" className="text-zinc-700 mb-4" />
           <p className="text-zinc-500 text-sm">Заявок пока нет</p>
           <p className="text-zinc-600 text-xs mt-1">Они появятся здесь после отправки формы записи</p>
-        </div>
+        </motion.div>
       ) : (
         <div className="space-y-3">
-          {filtered.map(booking => (
-            <div key={booking.id} className="bg-zinc-800 border border-zinc-700 rounded-sm p-5">
+          <AnimatePresence initial={false}>
+          {filtered.map((booking, i) => (
+            <motion.div key={booking.id} layout="position"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.3, delay: i * 0.03, ease: EASE_OUT }}
+              whileHover={{ y: -1 }}
+              className="bg-zinc-800 border border-zinc-700 rounded-sm p-5 transition-colors hover:border-zinc-600">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-3 flex-wrap">
@@ -318,8 +345,9 @@ export default function AdminBookings() {
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

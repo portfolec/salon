@@ -1,7 +1,16 @@
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
 import type { Master } from '../../data'
 import { Plus, PencilSimple, Trash, X, Check, CalendarBlank } from '@phosphor-icons/react'
+
+const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
+const formMotion = {
+  initial: { opacity: 0, height: 0, y: -8 },
+  animate: { opacity: 1, height: 'auto', y: 0 },
+  exit: { opacity: 0, height: 0, y: -8 },
+  transition: { duration: 0.25, ease: EASE_OUT },
+}
 
 function emptyMaster(): Omit<Master, 'id'> {
   return { name: '', role: '', experience: '', services: [], photo: '' }
@@ -110,56 +119,72 @@ export default function AdminMasters() {
           <h2 className="text-xl font-semibold text-white mb-1">Мастера</h2>
           <p className="text-sm text-zinc-500">{masters.length} специалистов · расписание в разделе «График»</p>
         </div>
-        <button onClick={() => { setAdding(true); setEditingId(null) }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] active:scale-[0.98] transition-all">
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setAdding(true); setEditingId(null) }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] transition-colors">
           <Plus size={16} weight="bold" />Добавить мастера
-        </button>
+        </motion.button>
       </div>
 
       <div className="space-y-3">
-        {adding && (
-          <MasterForm
-            initial={emptyMaster()}
-            onSave={async (m, sids) => { await addMaster(m, sids); setAdding(false) }}
-            onCancel={() => setAdding(false)}
-          />
-        )}
-
-        {masters.map(master => (
-          <div key={master.id}>
-            {editingId === master.id ? (
+        <AnimatePresence initial={false}>
+          {adding && (
+            <motion.div key="add-form" style={{ overflow: 'hidden' }} {...formMotion}>
               <MasterForm
-                initial={master}
-                onSave={async (m, sids) => { await updateMaster({ ...master, ...m }, sids); setEditingId(null) }}
-                onCancel={() => setEditingId(null)}
+                initial={emptyMaster()}
+                onSave={async (m, sids) => { await addMaster(m, sids); setAdding(false) }}
+                onCancel={() => setAdding(false)}
               />
-            ) : (
-              <div className="flex items-center gap-4 bg-zinc-800 border border-zinc-700 rounded-sm px-5 py-4">
-                <img src={master.photo || 'https://picsum.photos/seed/avatar/80/80'}
-                  alt={master.name}
-                  className="w-12 h-12 object-cover object-top rounded-full border border-zinc-700 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-white text-sm">{master.name}</div>
-                  <div className="text-xs text-[var(--color-accent)] mt-0.5">{master.role} · {master.experience}</div>
-                  <div className="text-xs text-zinc-500 mt-1 truncate">
-                    <CalendarBlank size={11} className="inline mr-1 relative -top-px" />
-                    {getServiceNames(master.services)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button onClick={() => { setEditingId(master.id); setAdding(false) }}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-sm transition-colors">
-                    <PencilSimple size={16} />
-                  </button>
-                  <button onClick={() => confirm('Удалить мастера?') && deleteMaster(master.id)}
-                    className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700 rounded-sm transition-colors">
-                    <Trash size={16} />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {masters.map((master, i) => (
+            <motion.div key={master.id} layout="position"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.35, delay: i * 0.04, ease: EASE_OUT }}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {editingId === master.id ? (
+                  <motion.div key="edit" style={{ overflow: 'hidden' }} {...formMotion}>
+                    <MasterForm
+                      initial={master}
+                      onSave={async (m, sids) => { await updateMaster({ ...master, ...m }, sids); setEditingId(null) }}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div key="view" whileHover={{ y: -1 }}
+                    className="flex items-center gap-4 bg-zinc-800 border border-zinc-700 rounded-sm px-5 py-4 transition-colors hover:border-zinc-600">
+                    <img src={master.photo || 'https://picsum.photos/seed/avatar/80/80'}
+                      alt={master.name}
+                      className="w-12 h-12 object-cover object-top rounded-full border border-zinc-700 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-white text-sm">{master.name}</div>
+                      <div className="text-xs text-[var(--color-accent)] mt-0.5">{master.role} · {master.experience}</div>
+                      <div className="text-xs text-zinc-500 mt-1 truncate">
+                        <CalendarBlank size={11} className="inline mr-1 relative -top-px" />
+                        {getServiceNames(master.services)}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => { setEditingId(master.id); setAdding(false) }}
+                        className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-sm transition-colors">
+                        <PencilSimple size={16} />
+                      </button>
+                      <button onClick={() => confirm('Удалить мастера?') && deleteMaster(master.id)}
+                        className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-700 rounded-sm transition-colors">
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   )
