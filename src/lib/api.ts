@@ -28,7 +28,10 @@ export async function uploadPhoto(file: File): Promise<string> {
     throw new Error(body?.error || `Ошибка загрузки файла (${res.status})`)
   }
   const data = await res.json() as { url: string }
-  return `${API_BASE}${data.url}`
+  // The backend returns either a relative path (local-disk fallback, e.g. /uploads/x.png)
+  // or an already-absolute URL (S3 storage, e.g. https://s3.twcstorage.ru/...) — only
+  // prepend our own API base in the relative case.
+  return /^https?:\/\//i.test(data.url) ? data.url : `${API_BASE}${data.url}`
 }
 
 // ─── SERVICES ────────────────────────────────────────────────────────────────
