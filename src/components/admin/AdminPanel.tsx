@@ -81,11 +81,11 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex">
-      {/* Sidebar */}
+    <div className="h-screen bg-zinc-950 flex overflow-hidden">
+      {/* Sidebar — pinned to the viewport; only its own content scrolls if it overflows */}
       <aside className={`
         fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col
+        w-64 h-screen bg-zinc-900 border-r border-zinc-800 flex flex-col overflow-y-auto shrink-0
         transform transition-transform duration-300 ease-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
@@ -208,9 +208,9 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
       </AnimatePresence>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top bar */}
-        <header className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center gap-4">
+        <header className="shrink-0 bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center gap-4">
           <button className="lg:hidden text-zinc-400 hover:text-white transition-colors" onClick={() => setSidebarOpen(true)}>
             <List size={22} />
           </button>
@@ -233,7 +233,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-6 lg:p-10 overflow-auto">
+        <main className="flex-1 min-h-0 p-6 lg:p-10 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
