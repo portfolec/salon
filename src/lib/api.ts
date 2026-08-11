@@ -1,19 +1,73 @@
 import { API_BASE } from './backend'
+import { getToken, clearSession, type AdminUser } from './auth'
 import type { Service, Master, SiteContent, TimeSlot, Booking, Vacancy } from '../data'
 
 // ─── fetch helper ────────────────────────────────────────────────────────────
 
 async function http<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken()
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...options,
   })
+  if (res.status === 401) clearSession()
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`${res.status} ${res.statusText}: ${body}`)
+    let message = body
+    try { message = (JSON.parse(body) as { error?: string }).error || body } catch { /* not JSON */ }
+    throw new Error(message || `${res.status} ${res.statusText}`)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+
+export async function login(username: string, password: string): Promise<{ token: string; user: AdminUser }> {
+  return http<{ token: string; user: AdminUser }>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+export async function logout(): Promise<void> {
+  try { await http<void>('/api/auth/logout', { method: 'POST' }) } catch { /* best-effort */ }
+}
+
+export async function fetchMe(): Promise<AdminUser> {
+  const { user } = await http<{ user: AdminUser }>('/api/auth/me')
+  return user
+}
+
+// ─── ADMIN USERS (staff account management, owner-only) ─────────────────────
+
+export interface AdminUserInput {
+  username: string
+  password: string
+  role?: 'owner' | 'staff'
+  permissions?: Partial<AdminUser['permissions']>
+}
+
+export async function fetchAdminUsers(): Promise<AdminUser[]> {
+  return http<AdminUser[]>('/api/admin-users')
+}
+
+export async function createAdminUser(input: AdminUserInput): Promise<AdminUser> {
+  return http<AdminUser>('/api/admin-users', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export async function updateAdminUser(
+  id: string,
+  patch: { password?: string; role?: 'owner' | 'staff'; active?: boolean; permissions?: Partial<AdminUser['permissions']> },
+): Promise<AdminUser> {
+  return http<AdminUser>(`/api/admin-users/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
+}
+
+export async function deleteAdminUser(id: string): Promise<void> {
+  await http<void>(`/api/admin-users/${id}`, { method: 'DELETE' })
 }
 
 // ─── FILE UPLOADS ────────────────────────────────────────────────────────────
@@ -22,7 +76,12 @@ async function http<T>(path: string, options?: RequestInit): Promise<T> {
 export async function uploadPhoto(file: File): Promise<string> {
   const formData = new FormData()
   formData.append('photo', file)
-  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData })
+  const token = getToken()
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: 'POST',
+    body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { error?: string } | null
     throw new Error(body?.error || `Ошибка загрузки файла (${res.status})`)

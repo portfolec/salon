@@ -4,6 +4,7 @@ import {
 } from 'react'
 import emailjs from '@emailjs/browser'
 import { isApiConfigured } from '../lib/backend'
+import { getToken } from '../lib/auth'
 import * as api from '../lib/api'
 import type { Service, Master, SiteContent, Booking, Vacancy } from '../data'
 import {
@@ -82,6 +83,7 @@ interface ContextValue {
   setContent: (c: SiteContent) => Promise<void>
 
   reload: () => Promise<void>
+  refreshBookings: () => Promise<void>
 }
 
 const DataContext = createContext<ContextValue | null>(null)
@@ -112,16 +114,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     setDbError(null)
     try {
-      const [svcs, msts, bkgs, vacs, cnt] = await Promise.all([
+      // Public data — needed by the customer-facing site, always fetched.
+      const [svcs, msts, vacs, cnt] = await Promise.all([
         api.fetchServices(),
         api.fetchMasters(),
-        api.fetchBookings(),
         api.fetchVacancies(),
         api.fetchContent(),
       ])
       setServices(svcs)
       setMasters(msts)
-      setBookings(bkgs)
       setVacancies(vacs)
       setContentState(cnt as SiteContent)
       setDbOk(true)
@@ -136,6 +137,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
+
+    // Bookings require an admin session — fetched best-effort so a missing
+    // token/permission never blocks the public site from loading.
+    await refreshBookings()
+  }, [isDb])
+
+  const refreshBookings = useCallback(async () => {
+    if (!isDb || !getToken()) return
+    try {
+      setBookings(await api.fetchBookings())
+    } catch (e) {
+      console.warn('[DataContext] bookings fetch failed (no session/permission?)', e)
+    }
   }, [isDb])
 
   useEffect(() => { reload() }, [reload])
@@ -145,10 +159,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!isDb) return
     const interval = setInterval(() => {
       if (document.hidden) return
-      api.fetchBookings().then(setBookings).catch(e => console.warn('[Polling] bookings refresh failed', e))
+      refreshBookings()
     }, 20000)
     return () => clearInterval(interval)
-  }, [isDb])
+  }, [isDb, refreshBookings])
 
   // ── SERVICES ──────────────────────────────────────────────────────────────
   const addService = async (s: Omit<Service, 'id'>) => {
@@ -305,7 +319,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       addMaster, updateMaster, deleteMaster,
       addBooking, updateBookingStatus, deleteBooking,
       addVacancy, updateVacancy, deleteVacancy,
-      setContent, reload,
+      setContent, reload, refreshBookings,
     }}>
       {children}
     </DataContext.Provider>

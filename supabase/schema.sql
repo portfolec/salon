@@ -162,6 +162,41 @@ CREATE TABLE IF NOT EXISTS vacancies (
 );
 
 -- ----------------------------------------------------------
+-- ADMIN USERS & SESSIONS (staff accounts with granular permissions)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS admin_users (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  username           TEXT UNIQUE NOT NULL,
+  password_hash      TEXT NOT NULL,
+  role               TEXT NOT NULL DEFAULT 'staff', -- 'owner' | 'staff'
+  can_bookings       BOOLEAN NOT NULL DEFAULT true,
+  can_masters        BOOLEAN NOT NULL DEFAULT false,
+  can_schedule       BOOLEAN NOT NULL DEFAULT false,
+  can_services       BOOLEAN NOT NULL DEFAULT false,
+  can_vacancies      BOOLEAN NOT NULL DEFAULT false,
+  can_content        BOOLEAN NOT NULL DEFAULT false,
+  can_notifications  BOOLEAN NOT NULL DEFAULT false,
+  active             BOOLEAN NOT NULL DEFAULT true,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 'owner' accounts implicitly bypass every can_* check in the API and can
+-- also manage other admin_users; 'staff' accounts are limited to their
+-- granted permissions.
+
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token       TEXT PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_user_id ON admin_sessions(user_id);
+
+ALTER TABLE admin_users    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_sessions ENABLE ROW LEVEL SECURITY;
+
+-- ----------------------------------------------------------
 -- RLS — для простоты открываем anon-ключу всё
 -- В продакшене лучше ограничить write через Supabase Auth
 -- ----------------------------------------------------------

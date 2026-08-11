@@ -22,7 +22,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     return this.props.children
   }
 }
-import { DataProvider } from './context/DataContext'
+import { DataProvider, useData } from './context/DataContext'
+import * as api from './lib/api'
+import { getToken, getStoredUser, clearSession, type AdminUser } from './lib/auth'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
 import Services from './components/Services'
@@ -76,16 +78,38 @@ function SiteApp() {
 }
 
 function AdminApp() {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('admin_auth') === '1')
+  const [user, setUser] = useState<AdminUser | null>(() => getStoredUser())
+  const [checking, setChecking] = useState(() => !!getToken())
+  const { refreshBookings } = useData()
+
+  // Validate the stored session against the server once (covers expired/revoked tokens).
+  useEffect(() => {
+    const token = getToken()
+    if (!token) { setChecking(false); return }
+    api.fetchMe()
+      .then(u => { setUser(u); refreshBookings() })
+      .catch(() => { clearSession(); setUser(null) })
+      .finally(() => setChecking(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleLoginSuccess = (u: AdminUser) => {
+    setUser(u)
+    refreshBookings()
+  }
 
   const handleLogout = () => {
-    sessionStorage.removeItem('admin_auth')
-    setAuthed(false)
+    api.logout()
+    clearSession()
+    setUser(null)
     window.location.hash = ''
   }
 
-  if (!authed) return <AdminLogin onLogin={() => setAuthed(true)} />
-  return <AdminPanel onLogout={handleLogout} />
+  if (checking) {
+    return <div className="min-h-screen bg-zinc-950" />
+  }
+  if (!user) return <AdminLogin onLogin={handleLoginSuccess} />
+  return <AdminPanel user={user} onLogout={handleLogout} />
 }
 
 type Route = 'site' | 'admin' | 'agreement'

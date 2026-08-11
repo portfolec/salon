@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
 import AdminBookings from './AdminBookings'
@@ -8,34 +8,77 @@ import AdminVacancies from './AdminVacancies'
 import AdminContent from './AdminContent'
 import AdminSchedule from './AdminSchedule'
 import AdminNotifications from './AdminNotifications'
+import AdminUsers from './AdminUsers'
 import Logo from '../Logo'
+import { hasPermission, type AdminUser, type AdminPermissions } from '../../lib/auth'
 import {
   CalendarBlank, Scissors, UsersThree, TextT,
-  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase,
+  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase, ShieldCheck,
 } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
-type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'schedule' | 'content' | 'notifications'
+type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'schedule' | 'content' | 'notifications' | 'users'
 
-const tabs: { id: Tab; label: string; Icon: React.ElementType }[] = [
-  { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank },
-  { id: 'services',      label: 'Услуги',        Icon: Scissors },
-  { id: 'masters',       label: 'Мастера',       Icon: UsersThree },
-  { id: 'vacancies',     label: 'Вакансии',      Icon: Briefcase },
-  { id: 'schedule',      label: 'График',        Icon: Clock },
-  { id: 'content',       label: 'Контент',       Icon: TextT },
-  { id: 'notifications', label: 'Уведомления',   Icon: Bell },
+const ALL_TABS: { id: Tab; label: string; Icon: React.ElementType; permission?: keyof AdminPermissions; ownerOnly?: boolean }[] = [
+  { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank, permission: 'bookings' },
+  { id: 'services',      label: 'Услуги',        Icon: Scissors,      permission: 'services' },
+  { id: 'masters',       label: 'Мастера',       Icon: UsersThree,    permission: 'masters' },
+  { id: 'vacancies',     label: 'Вакансии',      Icon: Briefcase,     permission: 'vacancies' },
+  { id: 'schedule',      label: 'График',        Icon: Clock,         permission: 'schedule' },
+  { id: 'content',       label: 'Контент',       Icon: TextT,         permission: 'content' },
+  { id: 'notifications', label: 'Уведомления',   Icon: Bell,          permission: 'notifications' },
+  { id: 'users',         label: 'Пользователи',  Icon: ShieldCheck,   ownerOnly: true },
 ]
 
+/** Reads the requested tab id from the URL hash, e.g. "#admin/services" -> "services". */
+function getTabIdFromHash(): string {
+  const match = window.location.hash.match(/^#admin\/(.+)$/)
+  return match?.[1] ?? ''
+}
+
 interface AdminPanelProps {
+  user: AdminUser
   onLogout: () => void
 }
 
-export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('bookings')
+export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
+  const tabs = useMemo(
+    () => ALL_TABS.filter(t => t.ownerOnly ? user.role === 'owner' : hasPermission(user, t.permission!)),
+    [user],
+  )
+  const isAllowed = useCallback((id: string) => tabs.some(t => t.id === id), [tabs])
+
+  const [activeTab, setActiveTabState] = useState<Tab>(() => {
+    const fromHash = getTabIdFromHash()
+    return (isAllowed(fromHash) ? fromHash : tabs[0]?.id ?? 'bookings') as Tab
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { newBookingsCount, isDb, dbError, dbOk } = useData()
+
+  // Keep the URL hash in sync so each section has its own link and survives a page reload.
+  const setActiveTab = useCallback((tab: Tab) => {
+    setActiveTabState(tab)
+    window.history.replaceState(null, '', `#admin/${tab}`)
+  }, [])
+
+  // If the hash changes externally (back/forward navigation, manual edit), follow it.
+  useEffect(() => {
+    const handler = () => {
+      const id = getTabIdFromHash()
+      if (isAllowed(id)) setActiveTabState(id as Tab)
+    }
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [isAllowed])
+
+  // Ensure the hash reflects the current (permitted) tab on first mount.
+  useEffect(() => {
+    if (window.location.hash !== `#admin/${activeTab}`) {
+      window.history.replaceState(null, '', `#admin/${activeTab}`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen bg-zinc-950 flex">
@@ -128,6 +171,17 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           ))}
         </nav>
 
+        {/* Current user */}
+        <div className="px-4 py-3 mx-3 mb-1 flex items-center gap-2.5 bg-zinc-800/60 rounded-sm">
+          <div className="w-7 h-7 rounded-full bg-[var(--color-accent)]/20 flex items-center justify-center text-[var(--color-accent-light)] text-xs font-semibold shrink-0">
+            {user.username.slice(0, 1).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs text-white font-medium truncate">{user.username}</p>
+            <p className="text-[10px] text-zinc-500">{user.role === 'owner' ? 'Владелец' : 'Сотрудник'}</p>
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="px-3 py-4 border-t border-zinc-800 space-y-1">
           <a href="/" target="_blank" rel="noopener noreferrer"
@@ -195,6 +249,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'schedule'      && <AdminSchedule />}
               {activeTab === 'content'       && <AdminContent />}
               {activeTab === 'notifications' && <AdminNotifications />}
+              {activeTab === 'users'         && <AdminUsers currentUser={user} />}
             </motion.div>
           </AnimatePresence>
         </main>
