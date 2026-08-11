@@ -37,6 +37,7 @@ import FloatingCTA from './components/FloatingCTA'
 import AdminPanel from './components/admin/AdminPanel'
 import AdminLogin from './components/admin/AdminLogin'
 import YandexMetrika from './components/YandexMetrika'
+import UserAgreement from './components/UserAgreement'
 
 function SiteApp() {
   const [modalOpen, setModalOpen] = useState(false)
@@ -87,11 +88,20 @@ function AdminApp() {
   return <AdminPanel onLogout={handleLogout} />
 }
 
+type Route = 'site' | 'admin' | 'agreement'
+
+function getRoute(): Route {
+  const hash = window.location.hash
+  if (hash.startsWith('#admin')) return 'admin'
+  if (hash.startsWith('#agreement')) return 'agreement'
+  return 'site'
+}
+
 export default function App() {
-  const [isAdmin, setIsAdmin] = useState(() => window.location.hash.startsWith('#admin'))
+  const [route, setRoute] = useState<Route>(getRoute)
 
   useEffect(() => {
-    const handler = () => setIsAdmin(window.location.hash.startsWith('#admin'))
+    const handler = () => setRoute(getRoute())
     window.addEventListener('hashchange', handler)
     return () => window.removeEventListener('hashchange', handler)
   }, [])
@@ -99,7 +109,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <DataProvider>
-        {isAdmin ? <AdminApp /> : <SiteApp />}
+        {route === 'admin' ? <AdminApp /> : route === 'agreement' ? <UserAgreement /> : <SiteApp />}
       </DataProvider>
     </ErrorBoundary>
   )

@@ -113,6 +113,10 @@ export default function Footer() {
           <p className="text-xs text-[rgba(255,255,255,0.25)]">
             &copy; {new Date().getFullYear()} Стильный Акцент. Все права защищены.
           </p>
+          <a href="#agreement"
+            className="text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.55)] transition-colors">
+            Пользовательское соглашение
+          </a>
         </div>
       </div>
     </footer>

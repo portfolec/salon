@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'motion/react'
 import {
   X, ArrowLeft, ArrowRight, Check, CalendarBlank,
   User, Phone, CaretLeft, CaretRight, CheckCircle, Plus, Trash,
-  Scissors, UsersThree, Clock, CircleNotch, Warning,
 } from '@phosphor-icons/react'
 import { useData } from '../context/DataContext'
 import * as api from '../lib/api'
@@ -19,25 +18,13 @@ interface BookingModalProps {
   initialMasterId?: string
 }
 
-type Flow = 'service' | 'master' | 'time'
+/** Fixed build order: pick a service (with an optional variant sub-step), then a master, then a date/time. */
 type BuildStep = 'service' | 'master' | 'datetime'
-type Step = 'entry' | BuildStep | 'variant' | 'cart' | 'details' | 'confirm'
-
-/** Which criterion the client wants to pick first — order of the remaining steps follows. */
-const FLOW_ORDERS: Record<Flow, BuildStep[]> = {
-  service: ['service', 'master', 'datetime'],
-  master:  ['master', 'service', 'datetime'],
-  time:    ['datetime', 'service', 'master'],
-}
+type Step = BuildStep | 'variant' | 'cart' | 'details' | 'confirm'
 
 function stepToBuildStep(step: Step): BuildStep | null {
   if (step === 'variant') return 'service'
   return step === 'service' || step === 'master' || step === 'datetime' ? step : null
-}
-
-/** True if the datetime step already happened earlier in this flow's order (so we must not clear it). */
-function preserveDateTime(order: BuildStep[], current: BuildStep): boolean {
-  return order.indexOf('datetime') < order.indexOf(current)
 }
 
 interface CartItem {
@@ -61,9 +48,10 @@ interface Draft {
 
 interface State {
   step: Step
-  flow: Flow
   draft: Draft
   preselectedMasterId: string | null
+  /** True while the very first cart item is still constrained to the service passed in via props (no back-navigation past it). */
+  initialServiceLocked: boolean
   cart: CartItem[]
   name: string
   phone: string
@@ -76,13 +64,12 @@ interface State {
 }
 
 type Action =
-  | { type: 'SET_FLOW'; flow: Flow }
   | { type: 'SELECT_SERVICE'; id: string; hasVariants: boolean }
   | { type: 'SELECT_VARIANT'; id: string; name: string }
   | { type: 'SELECT_MASTER'; id: string | null }
   | { type: 'SELECT_DATE'; date: Date }
   | { type: 'SELECT_TIME'; time: string }
-  | { type: 'CONTINUE_DATETIME' }
+  | { type: 'ADD_TO_CART' }
   | { type: 'REMOVE_FROM_CART'; id: string }
   | { type: 'START_ANOTHER' }
   | { type: 'SET_FIELD'; field: 'name' | 'phone' | 'comment'; value: string }
@@ -114,24 +101,23 @@ function addDraftToCart(state: State, draft: Draft): State {
 
 function init(initialServiceId?: string, initialMasterId?: string, initialHasVariants?: boolean): State {
   const today = new Date()
-  let step: Step = 'entry'
-  let flow: Flow = 'service'
+  let step: Step = 'service'
   let preselectedMasterId: string | null = null
+  let initialServiceLocked = false
 
   if (initialServiceId) {
-    flow = 'service'
+    initialServiceLocked = true
     step = initialHasVariants ? 'variant' : 'master'
   } else if (initialMasterId) {
-    flow = 'master'
     preselectedMasterId = initialMasterId
     step = 'service'
   }
 
   return {
     step,
-    flow,
     draft: { ...emptyDraft(initialServiceId ?? null), masterId: preselectedMasterId },
     preselectedMasterId,
+    initialServiceLocked,
     cart: [],
     name: '',
     phone: '',
@@ -146,78 +132,38 @@ function init(initialServiceId?: string, initialMasterId?: string, initialHasVar
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'SET_FLOW': {
-      const order = FLOW_ORDERS[action.flow]
-      return {
-        ...state,
-        flow: action.flow,
-        step: order[0],
-        draft: emptyDraft(),
-        preselectedMasterId: null,
-        errors: {},
-      }
-    }
     case 'SELECT_SERVICE': {
-      const order = FLOW_ORDERS[state.flow]
-      const masterId = state.preselectedMasterId ?? state.draft.masterId
-      const keepDT = preserveDateTime(order, 'service')
       const newDraft: Draft = {
         serviceId: action.id,
         variantId: null,
         variantName: null,
-        masterId,
-        date: keepDT ? state.draft.date : null,
-        time: keepDT ? state.draft.time : null,
+        masterId: state.preselectedMasterId,
+        date: null,
+        time: null,
       }
       if (action.hasVariants) {
         return { ...state, draft: newDraft, step: 'variant', errors: {} }
       }
-      const idx = order.indexOf('service')
-      const nextStep = order[idx + 1]
-      return nextStep
-        ? { ...state, draft: newDraft, step: nextStep, errors: {} }
-        : addDraftToCart(state, newDraft)
+      return { ...state, draft: newDraft, step: state.preselectedMasterId ? 'datetime' : 'master', errors: {} }
     }
     case 'SELECT_VARIANT': {
-      const order = FLOW_ORDERS[state.flow]
       const newDraft: Draft = { ...state.draft, variantId: action.id, variantName: action.name }
-      const idx = order.indexOf('service')
-      const nextStep = order[idx + 1]
-      return nextStep
-        ? { ...state, draft: newDraft, step: nextStep, errors: {} }
-        : addDraftToCart(state, newDraft)
+      return { ...state, draft: newDraft, step: state.preselectedMasterId ? 'datetime' : 'master', errors: {} }
     }
     case 'SELECT_MASTER': {
-      const order = FLOW_ORDERS[state.flow]
-      const keepDT = preserveDateTime(order, 'master')
-      const newDraft: Draft = {
-        ...state.draft,
-        masterId: action.id,
-        date: keepDT ? state.draft.date : null,
-        time: keepDT ? state.draft.time : null,
-      }
-      const idx = order.indexOf('master')
-      const nextStep = order[idx + 1]
-      return nextStep
-        ? { ...state, draft: newDraft, step: nextStep, errors: {} }
-        : addDraftToCart(state, newDraft)
+      const newDraft: Draft = { ...state.draft, masterId: action.id }
+      return { ...state, draft: newDraft, step: 'datetime', errors: {} }
     }
     case 'SELECT_DATE':
       return { ...state, draft: { ...state.draft, date: action.date, time: null } }
     case 'SELECT_TIME':
       return { ...state, draft: { ...state.draft, time: action.time } }
-    case 'CONTINUE_DATETIME': {
-      const order = FLOW_ORDERS[state.flow]
-      const idx = order.indexOf('datetime')
-      const nextStep = order[idx + 1]
-      return nextStep
-        ? { ...state, step: nextStep, errors: {} }
-        : addDraftToCart(state, state.draft)
-    }
+    case 'ADD_TO_CART':
+      return addDraftToCart(state, state.draft)
     case 'REMOVE_FROM_CART':
       return { ...state, cart: state.cart.filter(i => i.id !== action.id) }
     case 'START_ANOTHER':
-      return { ...state, draft: emptyDraft(), preselectedMasterId: null, step: 'entry', errors: {} }
+      return { ...state, draft: emptyDraft(), preselectedMasterId: null, initialServiceLocked: false, step: 'service', errors: {} }
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value, errors: { ...state.errors, [action.field]: '' } }
     case 'SET_ERRORS':
@@ -270,8 +216,6 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
   const [availDays,  setAvailDays]  = useState<Set<number>>(new Set())
   const [timeSlots,  setTimeSlots]  = useState<TimeSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
-  const [masterCheckingId, setMasterCheckingId] = useState<string | null>(null)
-  const [masterConflict, setMasterConflict] = useState(false)
 
   useEffect(() => {
     if (open && (initialServiceId !== prevInitId.current || initialMasterId !== prevInitMasterId.current)) {
@@ -322,7 +266,8 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
     setTimeout(() => dispatch({ type: 'RESET' }), 300)
   }
 
-  const order = FLOW_ORDERS[state.flow]
+  // Fixed build order: "Service" step, then "Master" (skipped if a master was preselected), then "Date".
+  const order: BuildStep[] = state.preselectedMasterId ? ['service', 'datetime'] : ['service', 'master', 'datetime']
   const currentBuildStep = stepToBuildStep(state.step)
   const buildStepIndex = currentBuildStep ? order.indexOf(currentBuildStep) : -1
 
@@ -340,11 +285,8 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
       )
     : masters
 
-  // The master is already known before the service step in the "master-first" flow
-  // (draft.masterId) or when the modal opened pinned to one master (preselectedMasterId).
-  const masterKnownBeforeService = order.indexOf('master') < order.indexOf('service')
-  const activeMasterId = state.preselectedMasterId ?? (masterKnownBeforeService ? state.draft.masterId : null)
-  const activeMaster = activeMasterId ? masters.find(m => m.id === activeMasterId) : undefined
+  // The master is already known before the service step only when the modal opened pinned to one master.
+  const activeMaster = state.preselectedMasterId ? masters.find(m => m.id === state.preselectedMasterId) : undefined
 
   const selectableServices = activeMaster
     ? services.filter(s => masterOffersService(activeMaster, s))
@@ -358,36 +300,31 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
     ? (currentService?.variants ?? []).filter(v => !activeMaster.disabledVariantIds?.includes(v.id))
     : (currentService?.variants ?? [])
 
-  const isDatetimeLastStep = order.indexOf('datetime') === order.length - 1
-  const isMasterLastStep = order.indexOf('master') === order.length - 1
+  // The very first screen of this session — hides the back button since there's nothing before it.
+  const isFirstScreen = state.initialServiceLocked
+    ? state.step === (currentService?.variants?.length ? 'variant' : 'master')
+    : state.step === 'service'
 
   function goBack() {
     if (state.step === 'variant') {
       dispatch({ type: 'GO_STEP', step: 'service' })
       return
     }
-    const bs = stepToBuildStep(state.step)
-    if (!bs) return
-    const idx = order.indexOf(bs)
-    dispatch({ type: 'GO_STEP', step: idx > 0 ? order[idx - 1] : 'entry' })
+    if (state.step === 'master') {
+      dispatch({ type: 'GO_STEP', step: currentService?.variants?.length ? 'variant' : 'service' })
+      return
+    }
+    if (state.step === 'datetime') {
+      dispatch({
+        type: 'GO_STEP',
+        step: state.preselectedMasterId
+          ? (currentService?.variants?.length ? 'variant' : 'service')
+          : 'master',
+      })
+    }
   }
 
-  async function handleMasterClick(masterId: string | null) {
-    setMasterConflict(false)
-    if (
-      isMasterLastStep && masterId && state.draft.serviceId &&
-      state.draft.date && state.draft.time && isApiConfigured
-    ) {
-      setMasterCheckingId(masterId)
-      try {
-        const slots = await api.getTimeSlots(masterId, state.draft.serviceId, masters, services, state.draft.date, state.draft.variantId)
-        const ok = slots.some(s => s.time === state.draft.time && s.available)
-        setMasterCheckingId(null)
-        if (!ok) { setMasterConflict(true); return }
-      } catch {
-        setMasterCheckingId(null)
-      }
-    }
+  function handleMasterClick(masterId: string | null) {
     dispatch({ type: 'SELECT_MASTER', id: masterId })
   }
 
@@ -444,8 +381,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
   }
 
   const headerTitle =
-    state.step === 'entry' ? 'Онлайн-запись'
-    : state.step === 'cart' ? 'Ваша запись'
+    state.step === 'cart' ? 'Ваша запись'
     : state.step === 'details' ? 'Контакты'
     : state.step === 'confirm' ? 'Подтверждение'
     : 'Онлайн-запись'
@@ -472,7 +408,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
           >
             <div className="flex items-center justify-between px-6 py-5 border-b border-[rgba(26,26,26,0.1)] shrink-0">
               <div className="flex items-center gap-3">
-                {(buildStepIndex >= 0 || state.step === 'variant') && !state.submitted && (
+                {(buildStepIndex >= 0 || state.step === 'variant') && !isFirstScreen && !state.submitted && (
                   <button onClick={goBack}
                     className="text-[var(--color-ink-secondary)] hover:text-[var(--color-ink)] transition-colors" aria-label="Назад">
                     <ArrowLeft size={18} />
@@ -522,53 +458,6 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                   animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
                   transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
-
-                  {state.step === 'entry' && (
-                    <div className="p-6">
-                      <div className="space-y-2">
-                        <button onClick={() => dispatch({ type: 'SET_FLOW', flow: 'service' })}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors duration-150"
-                          style={{ borderRadius: 'var(--radius-input)' }}>
-                          <div className="w-9 h-9 bg-[var(--color-surface-elevated)] flex items-center justify-center shrink-0 rounded-full">
-                            <Scissors size={17} className="text-[var(--color-accent)]" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-[var(--color-ink)]">Услуга</span>
-                            <span className="block text-xs text-[var(--color-ink-tertiary)] mt-0.5">Далее: мастер, затем дата и время</span>
-                          </div>
-                        </button>
-                        <button onClick={() => dispatch({ type: 'SET_FLOW', flow: 'master' })}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors duration-150"
-                          style={{ borderRadius: 'var(--radius-input)' }}>
-                          <div className="w-9 h-9 bg-[var(--color-surface-elevated)] flex items-center justify-center shrink-0 rounded-full">
-                            <UsersThree size={17} className="text-[var(--color-accent)]" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-[var(--color-ink)]">Мастер</span>
-                            <span className="block text-xs text-[var(--color-ink-tertiary)] mt-0.5">Далее: услуга, затем дата и время</span>
-                          </div>
-                        </button>
-                        <button onClick={() => dispatch({ type: 'SET_FLOW', flow: 'time' })}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors duration-150"
-                          style={{ borderRadius: 'var(--radius-input)' }}>
-                          <div className="w-9 h-9 bg-[var(--color-surface-elevated)] flex items-center justify-center shrink-0 rounded-full">
-                            <Clock size={17} className="text-[var(--color-accent)]" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-[var(--color-ink)]">Дата и время</span>
-                            <span className="block text-xs text-[var(--color-ink-tertiary)] mt-0.5">Далее: услуга, затем мастер</span>
-                          </div>
-                        </button>
-                      </div>
-                      {state.cart.length > 0 && (
-                        <button onClick={() => dispatch({ type: 'GO_STEP', step: 'cart' })}
-                          className="mt-5 w-full py-3 border border-[rgba(26,26,26,0.15)] text-sm text-[var(--color-ink)] hover:border-[var(--color-accent)] transition-colors"
-                          style={{ borderRadius: 'var(--radius-btn)' }}>
-                          К списку записей ({state.cart.length})
-                        </button>
-                      )}
-                    </div>
-                  )}
 
                   {state.step === 'service' && (
                     <div className="p-6">
@@ -647,26 +536,9 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                   {state.step === 'master' && (
                     <div className="p-6">
                       <p className="text-sm text-[var(--color-ink-secondary)] mb-5">Выберите мастера:</p>
-                      {masterConflict && (
-                        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                          className="flex items-start gap-2.5 mb-4 px-4 py-3 bg-red-50 border border-red-200"
-                          style={{ borderRadius: 'var(--radius-card)' }}>
-                          <Warning size={16} className="text-red-500 shrink-0 mt-0.5" />
-                          <div className="min-w-0">
-                            <p className="text-xs text-red-700 leading-relaxed">
-                              Этот мастер занят в выбранное время. Выберите другого мастера или другое время.
-                            </p>
-                            <button onClick={() => { setMasterConflict(false); dispatch({ type: 'GO_STEP', step: 'datetime' }) }}
-                              className="text-xs font-medium text-red-700 underline mt-1.5">
-                              Выбрать другое время
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
                       <div className="space-y-2">
                         <button onClick={() => handleMasterClick(null)}
-                          disabled={masterCheckingId !== null}
-                          className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors disabled:opacity-50"
+                          className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors"
                           style={{ borderRadius: 'var(--radius-input)' }}>
                           <div className="w-9 h-9 bg-[var(--color-surface-elevated)] flex items-center justify-center shrink-0 rounded-full">
                             <User size={18} className="text-[var(--color-ink-tertiary)]" />
@@ -678,8 +550,7 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                         </button>
                         {relevantMasters.map(m => (
                           <button key={m.id} onClick={() => handleMasterClick(m.id)}
-                            disabled={masterCheckingId !== null}
-                            className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors disabled:opacity-50"
+                            className="w-full flex items-center gap-3 px-4 py-3.5 border border-[rgba(26,26,26,0.1)] hover:border-[var(--color-accent)] text-left transition-colors"
                             style={{ borderRadius: 'var(--radius-input)' }}>
                             <img src={m.photo || 'https://picsum.photos/seed/avatar/80/80'} alt={m.name}
                               className="w-9 h-9 object-cover shrink-0 rounded-full" />
@@ -687,9 +558,6 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                               <span className="text-sm font-medium text-[var(--color-ink)]">{m.name}</span>
                               <span className="block text-xs text-[var(--color-ink-tertiary)] mt-0.5">{m.role} · {m.experience}</span>
                             </div>
-                            {masterCheckingId === m.id && (
-                              <CircleNotch size={16} className="text-[var(--color-accent)] animate-spin shrink-0" />
-                            )}
                           </button>
                         ))}
                       </div>
@@ -698,11 +566,6 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
 
                   {state.step === 'datetime' && (
                     <div className="p-6">
-                      {!state.draft.serviceId && (
-                        <p className="text-xs text-[var(--color-ink-tertiary)] mb-4">
-                          Показаны общие рабочие часы — услугу и мастера уточним на следующих шагах.
-                        </p>
-                      )}
                       <div className="mb-6">
                         <div className="flex items-center justify-between mb-4">
                           <button onClick={() => dispatch({ type: 'NAV_MONTH', dir: -1 })}
@@ -776,10 +639,10 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
 
                       {state.draft.date && state.draft.time && (
                         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mt-6">
-                          <button onClick={() => dispatch({ type: 'CONTINUE_DATETIME' })}
+                          <button onClick={() => dispatch({ type: 'ADD_TO_CART' })}
                             className="w-full py-3.5 bg-[var(--color-ink)] text-white text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[var(--color-accent)] active:scale-[0.99] transition-all duration-200"
                             style={{ borderRadius: 'var(--radius-btn)' }}>
-                            {isDatetimeLastStep ? 'Добавить в запись' : 'Далее'} <ArrowRight size={16} />
+                            Добавить в запись <ArrowRight size={16} />
                           </button>
                         </motion.div>
                       )}
@@ -885,6 +748,12 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                           style={{ borderRadius: 'var(--radius-btn)' }}>
                           Проверить запись <ArrowRight size={16} />
                         </button>
+                        <p className="text-[11px] text-[var(--color-ink-tertiary)] text-center leading-relaxed">
+                          Отправляя заявку, вы соглашаетесь с{' '}
+                          <a href="#agreement" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-ink)]">
+                            пользовательским соглашением
+                          </a>
+                        </p>
                       </div>
                     </div>
                   )}

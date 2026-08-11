@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData } from '../../context/DataContext'
 import type { Master } from '../../data'
-import { Plus, PencilSimple, Trash, X, Check, CalendarBlank, ListBullets } from '@phosphor-icons/react'
+import { Plus, PencilSimple, Trash, X, Check, CalendarBlank, ListBullets, UploadSimple, CircleNotch, WarningCircle } from '@phosphor-icons/react'
+import * as api from '../../lib/api'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 const formMotion = {
@@ -29,9 +30,26 @@ function MasterForm({
     disabledVariantIds: initial.disabledVariantIds ?? [],
   })
   const valid = form.name.trim() && form.role.trim()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const set = (field: keyof Omit<Master, 'id' | 'services' | 'disabledVariantIds'>, value: string) =>
     setForm(f => ({ ...f, [field]: value }))
+
+  const handlePhotoFile = async (file: File | undefined) => {
+    if (!file) return
+    setUploadError('')
+    setUploading(true)
+    try {
+      const url = await api.uploadPhoto(file)
+      set('photo', url)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Не удалось загрузить фото')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const toggleService = (id: string) =>
     setForm(f => {
@@ -82,10 +100,24 @@ function MasterForm({
             className="w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors" />
         </div>
         <div>
-          <label className="block text-xs text-zinc-400 mb-1.5">Фото (URL)</label>
-          <input value={form.photo} onChange={e => set('photo', e.target.value)}
-            placeholder="https://..."
-            className="w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors" />
+          <label className="block text-xs text-zinc-400 mb-1.5">Фото</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => handlePhotoFile(e.target.files?.[0])}
+          />
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-zinc-300 hover:border-[var(--color-accent)] hover:text-white rounded-sm transition-colors disabled:opacity-50">
+            {uploading ? <CircleNotch size={14} className="animate-spin" /> : <UploadSimple size={14} />}
+            {uploading ? 'Загрузка...' : form.photo ? 'Заменить фото' : 'Загрузить фото'}
+          </button>
+          {uploadError && (
+            <p className="flex items-center gap-1 text-[11px] text-red-400 mt-1.5">
+              <WarningCircle size={12} />{uploadError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -93,6 +125,10 @@ function MasterForm({
         <div className="flex items-center gap-3">
           <img src={form.photo} alt="preview" className="w-16 h-16 object-cover rounded-sm border border-zinc-700" />
           <span className="text-xs text-zinc-500">Предпросмотр фото</span>
+          <button type="button" onClick={() => set('photo', '')}
+            className="text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto">
+            Удалить
+          </button>
         </div>
       )}
 

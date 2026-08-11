@@ -16,6 +16,21 @@ async function http<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// ─── FILE UPLOADS ────────────────────────────────────────────────────────────
+
+/** Uploads an image file to the backend and returns its absolute URL. */
+export async function uploadPhoto(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('photo', file)
+  const res = await fetch(`${API_BASE}/api/upload`, { method: 'POST', body: formData })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null) as { error?: string } | null
+    throw new Error(body?.error || `Ошибка загрузки файла (${res.status})`)
+  }
+  const data = await res.json() as { url: string }
+  return `${API_BASE}${data.url}`
+}
+
 // ─── SERVICES ────────────────────────────────────────────────────────────────
 
 export async function fetchServices(): Promise<Service[]> {
