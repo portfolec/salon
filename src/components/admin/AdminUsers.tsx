@@ -21,13 +21,14 @@ const PERMISSION_LABELS: { key: keyof AdminPermissions; label: string }[] = [
   { key: 'schedule',      label: 'График' },
   { key: 'services',      label: 'Услуги' },
   { key: 'vacancies',     label: 'Вакансии' },
+  { key: 'testimonials',  label: 'Отзывы' },
   { key: 'content',       label: 'Контент' },
   { key: 'notifications', label: 'Уведомления' },
 ]
 
 const emptyPermissions: AdminPermissions = {
   bookings: true, masters: true, schedule: true,
-  services: false, vacancies: false, content: false, notifications: false,
+  services: false, vacancies: false, testimonials: false, content: false, notifications: false,
 }
 
 interface FormState {

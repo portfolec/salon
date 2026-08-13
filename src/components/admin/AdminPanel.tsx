@@ -5,6 +5,7 @@ import AdminBookings from './AdminBookings'
 import AdminServices from './AdminServices'
 import AdminMasters from './AdminMasters'
 import AdminVacancies from './AdminVacancies'
+import AdminTestimonials from './AdminTestimonials'
 import AdminContent from './AdminContent'
 import AdminSchedule from './AdminSchedule'
 import AdminNotifications from './AdminNotifications'
@@ -13,18 +14,19 @@ import Logo from '../Logo'
 import { hasPermission, type AdminUser, type AdminPermissions } from '../../lib/auth'
 import {
   CalendarBlank, Scissors, UsersThree, TextT,
-  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase, ShieldCheck,
+  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase, ShieldCheck, ChatCircleText,
 } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
-type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'schedule' | 'content' | 'notifications' | 'users'
+type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'testimonials' | 'schedule' | 'content' | 'notifications' | 'users'
 
 const ALL_TABS: { id: Tab; label: string; Icon: React.ElementType; permission?: keyof AdminPermissions; ownerOnly?: boolean }[] = [
   { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank, permission: 'bookings' },
   { id: 'services',      label: 'Услуги',        Icon: Scissors,      permission: 'services' },
   { id: 'masters',       label: 'Мастера',       Icon: UsersThree,    permission: 'masters' },
   { id: 'vacancies',     label: 'Вакансии',      Icon: Briefcase,     permission: 'vacancies' },
+  { id: 'testimonials',  label: 'Отзывы',        Icon: ChatCircleText, permission: 'testimonials' },
   { id: 'schedule',      label: 'График',        Icon: Clock,         permission: 'schedule' },
   { id: 'content',       label: 'Контент',       Icon: TextT,         permission: 'content' },
   { id: 'notifications', label: 'Уведомления',   Icon: Bell,          permission: 'notifications' },
@@ -246,6 +248,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
               {activeTab === 'services'      && <AdminServices />}
               {activeTab === 'masters'       && <AdminMasters />}
               {activeTab === 'vacancies'     && <AdminVacancies />}
+              {activeTab === 'testimonials'  && <AdminTestimonials />}
               {activeTab === 'schedule'      && <AdminSchedule />}
               {activeTab === 'content'       && <AdminContent />}
               {activeTab === 'notifications' && <AdminNotifications />}

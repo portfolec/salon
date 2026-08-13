@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData, type Booking } from '../../context/DataContext'
-import type { BookingSource } from '../../data'
+import type { BookingSource, TimeSlot } from '../../data'
+import * as api from '../../lib/api'
+import { STATUS_LABELS, SOURCE_LABELS, BookingRow } from './bookingShared'
+import AdminMasterCalendar from './AdminMasterCalendar'
 import {
-  CalendarBlank, Phone, User, CheckCircle, XCircle, Clock, Plus, Trash,
+  CalendarBlank, Plus, CaretLeft, CaretRight, ListBullets, UsersThree,
 } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
@@ -14,38 +17,41 @@ const formMotion = {
   transition: { duration: 0.25, ease: EASE_OUT },
 }
 
-const STATUS_LABELS: Record<Booking['status'], string> = {
-  new: 'Новая',
-  confirmed: 'Подтверждена',
-  done: 'Выполнена',
-  cancelled: 'Отменена',
+const MONTHS_RU = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+function buildCalendarGrid(year: number, month: number): (number | null)[] {
+  const firstDay = new Date(year, month, 1)
+  const startDow = firstDay.getDay()
+  const offset = startDow === 0 ? 6 : startDow - 1
+  const days: (number | null)[] = Array(offset).fill(null)
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  for (let d = 1; d <= daysInMonth; d++) days.push(d)
+  while (days.length % 7 !== 0) days.push(null)
+  return days
 }
 
-const STATUS_COLORS: Record<Booking['status'], string> = {
-  new: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  confirmed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  done: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20',
-  cancelled: 'bg-red-500/15 text-red-400 border-red-500/20',
-}
-
-const SOURCE_LABELS: Record<BookingSource, string> = {
-  website: 'Сайт',
-  phone: 'Телефон',
-  telegram: 'Telegram',
-  instagram: 'Instagram',
-  admin: 'Админ',
-  other: 'Другое',
-}
+function pad(n: number) { return String(n).padStart(2, '0') }
 
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminBookings() {
   const { bookings, updateBookingStatus, deleteBooking, addBooking, services, masters } = useData()
+  const [view, setView] = useState<'list' | 'calendar'>('list')
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // ── availability-driven date/time picker for the manual "add booking" form ──
+  const today = new Date()
+  const [calYear, setCalYear] = useState(today.getFullYear())
+  const [calMonth, setCalMonth] = useState(today.getMonth())
+  const [availDays, setAvailDays] = useState<Set<number>>(new Set())
+  const [daysLoading, setDaysLoading] = useState(false)
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
 
   const handleStatusChange = async (id: string, status: Booking['status']) => {
     setUpdatingId(id)
@@ -103,6 +109,38 @@ export default function AdminBookings() {
       comment: '',
       source: 'phone',
     })
+    setAvailDays(new Set())
+    setTimeSlots([])
+  }
+
+  // Load which days have free slots for the chosen service/master.
+  useEffect(() => {
+    if (!form.serviceId) { setAvailDays(new Set()); return }
+    setDaysLoading(true)
+    api.getAvailableDays(form.masterId || null, form.serviceId, masters, calYear, calMonth)
+      .then(setAvailDays)
+      .catch(() => setAvailDays(new Set()))
+      .finally(() => setDaysLoading(false))
+  }, [form.serviceId, form.masterId, calYear, calMonth, masters])
+
+  // Load free time slots for the chosen day.
+  useEffect(() => {
+    if (!form.serviceId || !form.date) { setTimeSlots([]); return }
+    setSlotsLoading(true)
+    const dateObj = new Date(`${form.date}T00:00:00`)
+    api.getTimeSlots(form.masterId || null, form.serviceId, masters, services, dateObj)
+      .then(setTimeSlots)
+      .catch(() => setTimeSlots([]))
+      .finally(() => setSlotsLoading(false))
+  }, [form.serviceId, form.masterId, form.date, masters, services])
+
+  const navFormMonth = (dir: number) => {
+    let m = calMonth + dir
+    let y = calYear
+    if (m < 0) { m = 11; y -= 1 }
+    if (m > 11) { m = 0; y += 1 }
+    setCalMonth(m)
+    setCalYear(y)
   }
 
   const handleCreate = async () => {
@@ -141,7 +179,7 @@ export default function AdminBookings() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-white mb-1">Заявки на запись</h2>
           <p className="text-sm text-zinc-500">Всего заявок: {bookings.length}. Записи с сайта и из админки сразу занимают слот в графике.</p>
@@ -156,6 +194,24 @@ export default function AdminBookings() {
           </motion.span>
           {showForm ? 'Закрыть' : 'Добавить запись'}
         </motion.button>
+      </div>
+
+      <div className="flex gap-2 mb-6">
+        {([
+          { id: 'list', label: 'Список заявок', Icon: ListBullets },
+          { id: 'calendar', label: 'По мастерам', Icon: UsersThree },
+        ] as const).map(({ id, label, Icon }) => (
+          <motion.button key={id} whileTap={{ scale: 0.96 }} onClick={() => setView(id)}
+            className={`relative flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-sm border transition-colors duration-150
+              ${view === id ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
+            {view === id && (
+              <motion.span layoutId="bookingViewPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
+                transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+            )}
+            <Icon size={14} weight={view === id ? 'fill' : 'regular'} />
+            {label}
+          </motion.button>
+        ))}
       </div>
 
       <AnimatePresence initial={false}>
@@ -180,7 +236,7 @@ export default function AdminBookings() {
               <label className="block text-xs text-zinc-400 mb-1.5">Услуга</label>
               <select
                 value={form.serviceId}
-                onChange={e => setForm(f => ({ ...f, serviceId: e.target.value, masterId: '' }))}
+                onChange={e => setForm(f => ({ ...f, serviceId: e.target.value, masterId: '', date: '', time: '' }))}
                 className={inputCls}
               >
                 <option value="">Выберите услугу</option>
@@ -193,7 +249,7 @@ export default function AdminBookings() {
               <label className="block text-xs text-zinc-400 mb-1.5">Мастер</label>
               <select
                 value={form.masterId}
-                onChange={e => setForm(f => ({ ...f, masterId: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, masterId: e.target.value, date: '', time: '' }))}
                 className={inputCls}
               >
                 <option value="">Любой / не указан</option>
@@ -201,18 +257,6 @@ export default function AdminBookings() {
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Дата</label>
-              <input type="date" value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className={inputCls} />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Время</label>
-              <input type="time" value={form.time}
-                onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-                className={inputCls} />
             </div>
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Имя клиента</label>
@@ -233,9 +277,78 @@ export default function AdminBookings() {
                 placeholder="Пожелания..." className={inputCls} />
             </div>
           </div>
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1.5">Дата и время</label>
+            {!form.serviceId ? (
+              <p className="text-xs text-zinc-600 py-3 px-1">Сначала выберите услугу — здесь появится свободное время выбранного мастера.</p>
+            ) : (
+              <div className="bg-zinc-900 border border-zinc-700 rounded-sm p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <button type="button" onClick={() => navFormMonth(-1)} className="p-1 text-zinc-400 hover:text-white transition-colors">
+                    <CaretLeft size={14} />
+                  </button>
+                  <span className="text-xs font-medium text-white">{MONTHS_RU[calMonth]} {calYear}</span>
+                  <button type="button" onClick={() => navFormMonth(1)} className="p-1 text-zinc-400 hover:text-white transition-colors">
+                    <CaretRight size={14} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {DAYS_RU.map(d => (
+                    <div key={d} className="text-center text-[9px] text-zinc-600 py-1">{d}</div>
+                  ))}
+                </div>
+                <div className={`grid grid-cols-7 gap-1 mb-4 transition-opacity ${daysLoading ? 'opacity-50' : ''}`}>
+                  {buildCalendarGrid(calYear, calMonth).map((day, idx) => {
+                    if (!day) return <div key={idx} />
+                    const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(day)}`
+                    const isAvail = availDays.has(day)
+                    const isSel = form.date === dateStr
+                    return (
+                      <button type="button" key={idx} disabled={!isAvail}
+                        onClick={() => setForm(f => ({ ...f, date: dateStr, time: '' }))}
+                        className={`h-7 text-xs rounded-sm transition-colors duration-150
+                          ${isSel ? 'bg-[var(--color-accent)] text-white font-medium' : ''}
+                          ${!isSel && isAvail ? 'hover:bg-zinc-800 text-white' : ''}
+                          ${!isAvail ? 'text-zinc-700 cursor-not-allowed' : ''}`}>
+                        {day}
+                      </button>
+                    )
+                  })}
+                </div>
+                {form.date && (
+                  <div>
+                    {slotsLoading ? (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div key={i} className="h-8 rounded-sm bg-zinc-800 animate-pulse" />
+                        ))}
+                      </div>
+                    ) : timeSlots.length === 0 ? (
+                      <p className="text-xs text-zinc-600 py-1">Нет свободных слотов на этот день</p>
+                    ) : (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                        {timeSlots.map(slot => (
+                          <button type="button" key={slot.time} disabled={!slot.available}
+                            onClick={() => slot.available && setForm(f => ({ ...f, time: slot.time }))}
+                            className={`py-1.5 text-xs rounded-sm border transition-colors duration-150
+                              ${form.time === slot.time ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white font-medium' : ''}
+                              ${slot.available && form.time !== slot.time ? 'border-zinc-700 text-zinc-300 hover:border-zinc-500' : ''}
+                              ${!slot.available ? 'border-zinc-800 text-zinc-700 line-through cursor-not-allowed' : ''}`}>
+                            {slot.time}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <button
             onClick={handleCreate}
-            disabled={saving}
+            disabled={saving || !form.date || !form.time}
             className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-sm hover:bg-emerald-500 transition-colors disabled:opacity-50"
           >
             {saving ? 'Сохранение...' : 'Сохранить в график'}
@@ -244,113 +357,43 @@ export default function AdminBookings() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
-          <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
-            className={`relative px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
-              ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
-            {filter === f && (
-              <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
-                transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
-            )}
-            {f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})
-          </motion.button>
-        ))}
-      </div>
-
-      {filtered.length === 0 ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-20 text-center">
-          <CalendarBlank size={48} weight="thin" className="text-zinc-700 mb-4" />
-          <p className="text-zinc-500 text-sm">Заявок пока нет</p>
-          <p className="text-zinc-600 text-xs mt-1">Они появятся здесь после отправки формы записи</p>
-        </motion.div>
+      {view === 'calendar' ? (
+        <AdminMasterCalendar />
       ) : (
-        <div className="space-y-3">
-          <AnimatePresence initial={false}>
-          {filtered.map((booking, i) => (
-            <motion.div key={booking.id} layout="position"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, x: -20, transition: { duration: 0.2 } }}
-              transition={{ duration: 0.3, delay: i * 0.03, ease: EASE_OUT }}
-              whileHover={{ y: -1 }}
-              className="bg-zinc-800 border border-zinc-700 rounded-sm p-5 transition-colors hover:border-zinc-600">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-3 flex-wrap">
-                    <span className={`text-xs px-2.5 py-1 rounded-sm border font-medium ${STATUS_COLORS[booking.status]}`}>
-                      {STATUS_LABELS[booking.status]}
-                    </span>
-                    {booking.source && (
-                      <span className="text-xs px-2 py-1 rounded-sm border border-zinc-600 text-zinc-400">
-                        {SOURCE_LABELS[booking.source] ?? booking.source}
-                      </span>
-                    )}
-                    <span className="text-xs text-zinc-500">
-                      {new Date(booking.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <User size={14} className="text-zinc-500 shrink-0" />
-                      <span className="font-medium">{booking.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <Phone size={14} className="text-zinc-500 shrink-0" />
-                      <a href={`tel:${booking.phone.replace(/\D/g,'')}`} className="hover:text-[var(--color-accent)] transition-colors">
-                        {booking.phone}
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <CalendarBlank size={14} className="text-zinc-500 shrink-0" />
-                      <span>{booking.date}, {booking.time}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-zinc-300">
-                      <Clock size={14} className="text-zinc-500 shrink-0" />
-                      <span>
-                        {booking.service}{booking.variantName ? ` (${booking.variantName})` : ''}{booking.master ? ` — ${booking.master}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                  {booking.comment && (
-                    <p className="mt-2 text-xs text-zinc-500 italic">&ldquo;{booking.comment}&rdquo;</p>
-                  )}
-                </div>
+        <>
+          <div className="flex flex-wrap gap-2 mb-6">
+            {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
+              <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
+                className={`relative px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
+                  ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
+                {filter === f && (
+                  <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
+                    transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+                )}
+                {f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})
+              </motion.button>
+            ))}
+          </div>
 
-                <div className="flex flex-row sm:flex-col gap-2 shrink-0">
-                  {booking.status === 'new' && (
-                    <button onClick={() => handleStatusChange(booking.id, 'confirmed')}
-                      disabled={updatingId === booking.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 text-emerald-400 border border-emerald-600/30 text-xs font-medium rounded-sm hover:bg-emerald-600/30 transition-colors disabled:opacity-50">
-                      <CheckCircle size={14} />{updatingId === booking.id ? 'Сохранение...' : 'Подтвердить'}
-                    </button>
-                  )}
-                  {booking.status === 'confirmed' && (
-                    <button onClick={() => handleStatusChange(booking.id, 'done')}
-                      disabled={updatingId === booking.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600/20 text-zinc-400 border border-zinc-600/30 text-xs font-medium rounded-sm hover:bg-zinc-600/30 transition-colors disabled:opacity-50">
-                      <CheckCircle size={14} />{updatingId === booking.id ? 'Сохранение...' : 'Выполнена'}
-                    </button>
-                  )}
-                  {booking.status !== 'cancelled' && booking.status !== 'done' && (
-                    <button onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                      disabled={updatingId === booking.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 border border-red-600/30 text-xs font-medium rounded-sm hover:bg-red-600/30 transition-colors disabled:opacity-50">
-                      <XCircle size={14} />Отменить
-                    </button>
-                  )}
-                  <button onClick={() => handleDelete(booking.id, booking.name)}
-                    disabled={deletingId === booking.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700/40 text-zinc-400 border border-zinc-600/40 text-xs font-medium rounded-sm hover:bg-red-600/20 hover:text-red-400 hover:border-red-600/30 transition-colors disabled:opacity-50">
-                    <Trash size={14} />{deletingId === booking.id ? 'Удаление...' : 'Удалить'}
-                  </button>
-                </div>
-              </div>
+          {filtered.length === 0 ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-20 text-center">
+              <CalendarBlank size={48} weight="thin" className="text-zinc-700 mb-4" />
+              <p className="text-zinc-500 text-sm">Заявок пока нет</p>
+              <p className="text-zinc-600 text-xs mt-1">Они появятся здесь после отправки формы записи</p>
             </motion.div>
-          ))}
-          </AnimatePresence>
-        </div>
+          ) : (
+            <div className="space-y-3">
+              <AnimatePresence initial={false}>
+                {filtered.map((booking, i) => (
+                  <BookingRow key={booking.id} booking={booking} index={i}
+                    updatingId={updatingId} deletingId={deletingId}
+                    onStatusChange={handleStatusChange} onDelete={handleDelete} />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

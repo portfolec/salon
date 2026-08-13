@@ -6,11 +6,12 @@ import emailjs from '@emailjs/browser'
 import { isApiConfigured } from '../lib/backend'
 import { getToken } from '../lib/auth'
 import * as api from '../lib/api'
-import type { Service, Master, SiteContent, Booking, Vacancy } from '../data'
+import type { Service, Master, SiteContent, Booking, Vacancy, Testimonial } from '../data'
 import {
   services as defaultServices,
   masters  as defaultMasters,
   vacancies as defaultVacancies,
+  testimonials as defaultTestimonials,
 } from '../data'
 
 export type { Booking, SiteContent }
@@ -56,6 +57,7 @@ interface ContextValue {
   masters: Master[]
   bookings: Booking[]
   vacancies: Vacancy[]
+  testimonials: Testimonial[]
   content: SiteContent
   loading: boolean
   newBookingsCount: number
@@ -80,6 +82,10 @@ interface ContextValue {
   updateVacancy: (v: Vacancy) => Promise<void>
   deleteVacancy: (id: string) => Promise<void>
 
+  addTestimonial:    (t: Omit<Testimonial, 'id'>) => Promise<void>
+  updateTestimonial: (t: Testimonial) => Promise<void>
+  deleteTestimonial: (id: string) => Promise<void>
+
   setContent: (c: SiteContent) => Promise<void>
 
   reload: () => Promise<void>
@@ -93,6 +99,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [masters,  setMasters]  = useState<Master[]>(defaultMasters)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [vacancies, setVacancies] = useState<Vacancy[]>(defaultVacancies)
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(defaultTestimonials)
   const [content,  setContentState] = useState<SiteContent>(DEFAULT_CONTENT)
   const [loading,  setLoading]  = useState(isApiConfigured)
   const [dbError, setDbError] = useState<string | null>(null)
@@ -108,6 +115,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (ls?.masters)   setMasters(ls.masters)
       if (ls?.bookings)  setBookings(ls.bookings)
       if (ls?.vacancies) setVacancies(ls.vacancies)
+      if (ls?.testimonials) setTestimonials(ls.testimonials)
       if (ls?.content)   setContentState(ls.content)
       return
     }
@@ -115,15 +123,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setDbError(null)
     try {
       // Public data — needed by the customer-facing site, always fetched.
-      const [svcs, msts, vacs, cnt] = await Promise.all([
+      const [svcs, msts, vacs, tstm, cnt] = await Promise.all([
         api.fetchServices(),
         api.fetchMasters(),
         api.fetchVacancies(),
+        api.fetchTestimonials(),
         api.fetchContent(),
       ])
       setServices(svcs)
       setMasters(msts)
       setVacancies(vacs)
+      setTestimonials(tstm)
       setContentState(cnt as SiteContent)
       setDbOk(true)
     } catch (e) {
@@ -300,6 +310,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // ── TESTIMONIALS ──────────────────────────────────────────────────────────
+  const addTestimonial = async (t: Omit<Testimonial, 'id'>) => {
+    if (isDb) {
+      const created = await api.createTestimonial(t)
+      setTestimonials(prev => [...prev, created])
+    } else {
+      const nt = { ...t, id: Date.now().toString() }
+      setTestimonials(prev => { const n = [...prev, nt]; saveLS('testimonials', n); return n })
+    }
+  }
+
+  const updateTestimonial = async (t: Testimonial) => {
+    if (isDb) {
+      await api.updateTestimonial(t)
+      setTestimonials(prev => prev.map(x => x.id === t.id ? t : x))
+    } else {
+      setTestimonials(prev => { const n = prev.map(x => x.id === t.id ? t : x); saveLS('testimonials', n); return n })
+    }
+  }
+
+  const deleteTestimonial = async (id: string) => {
+    if (isDb) {
+      await api.deleteTestimonial(id)
+      setTestimonials(prev => prev.filter(x => x.id !== id))
+    } else {
+      setTestimonials(prev => { const n = prev.filter(x => x.id !== id); saveLS('testimonials', n); return n })
+    }
+  }
+
   // ── CONTENT ───────────────────────────────────────────────────────────────
   const setContent = async (c: SiteContent) => {
     setContentState(c)
@@ -314,11 +353,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      services, masters, bookings, vacancies, content, loading, newBookingsCount, isDb, dbError, dbOk,
+      services, masters, bookings, vacancies, testimonials, content, loading, newBookingsCount, isDb, dbError, dbOk,
       addService, updateService, deleteService,
       addMaster, updateMaster, deleteMaster,
       addBooking, updateBookingStatus, deleteBooking,
       addVacancy, updateVacancy, deleteVacancy,
+      addTestimonial, updateTestimonial, deleteTestimonial,
       setContent, reload, refreshBookings,
     }}>
       {children}

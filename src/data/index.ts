@@ -78,6 +78,13 @@ export interface Vacancy {
   requirements: string
 }
 
+export interface Testimonial {
+  id: string
+  name: string
+  role: string
+  text: string
+}
+
 export const services: Service[] = [
   {
     id: 'hairdresser',
@@ -212,18 +219,21 @@ export const vacancies: Vacancy[] = [
   },
 ]
 
-export const testimonials = [
+export const testimonials: Testimonial[] = [
   {
+    id: 'testimonial-1',
     name: 'Екатерина Смирнова',
     role: 'Постоянный клиент, 2 года',
     text: 'Лучший маникюр в городе. Марина знает своё дело идеально — пришла на гель-лак и осталась на педикюр.',
   },
   {
+    id: 'testimonial-2',
     name: 'Ольга Михайлова',
     role: 'Клиент по рекомендации',
     text: 'Анастасия невероятный стилист. Показала вдохновение и получила именно то, о чём мечтала. Результат превзошёл ожидания.',
   },
   {
+    id: 'testimonial-3',
     name: 'Артём Белов',
     role: 'Первый визит в этом месяце',
     text: 'Отличный расслабляющий массаж. Профессионально, тихо и без суеты. Обязательно вернусь.',

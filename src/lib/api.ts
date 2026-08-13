@@ -1,6 +1,6 @@
 import { API_BASE } from './backend'
 import { getToken, clearSession, type AdminUser } from './auth'
-import type { Service, Master, SiteContent, TimeSlot, Booking, Vacancy } from '../data'
+import type { Service, Master, SiteContent, TimeSlot, Booking, Vacancy, Testimonial } from '../data'
 
 // ─── fetch helper ────────────────────────────────────────────────────────────
 
@@ -290,6 +290,24 @@ export async function updateVacancy(v: Vacancy): Promise<void> {
 
 export async function deleteVacancy(id: string): Promise<void> {
   await http<void>(`/api/vacancies/${id}`, { method: 'DELETE' })
+}
+
+// ─── TESTIMONIALS ───────────────────────────────────────────────────────────
+
+export async function fetchTestimonials(): Promise<Testimonial[]> {
+  return http<Testimonial[]>('/api/testimonials')
+}
+
+export async function createTestimonial(t: Omit<Testimonial, 'id'>): Promise<Testimonial> {
+  return http<Testimonial>('/api/testimonials', { method: 'POST', body: JSON.stringify(t) })
+}
+
+export async function updateTestimonial(t: Testimonial): Promise<void> {
+  await http<void>(`/api/testimonials/${t.id}`, { method: 'PUT', body: JSON.stringify(t) })
+}
+
+export async function deleteTestimonial(id: string): Promise<void> {
+  await http<void>(`/api/testimonials/${id}`, { method: 'DELETE' })
 }
 
 // ─── AVAILABILITY ─────────────────────────────────────────────────────────────

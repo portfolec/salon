@@ -1,12 +1,14 @@
 'use client'
 import { motion, useReducedMotion } from 'motion/react'
 import { Star, Quotes } from '@phosphor-icons/react'
-import { testimonials } from '../data'
+import { useData } from '../context/DataContext'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
 export default function Testimonials() {
   const reduce = useReducedMotion()
+  const { testimonials } = useData()
+  if (testimonials.length === 0) return null
   return (
     <section id="reviews" className="py-24 lg:py-32 bg-[var(--color-surface-elevated)]">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
@@ -25,7 +27,7 @@ export default function Testimonials() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {testimonials.map((t, i) => (
             <motion.div
-              key={t.name}
+              key={t.id}
               initial={{ opacity: 0, y: reduce ? 0 : 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.2 }}

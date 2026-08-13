@@ -162,6 +162,19 @@ CREATE TABLE IF NOT EXISTS vacancies (
 );
 
 -- ----------------------------------------------------------
+-- TESTIMONIALS
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS testimonials (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  name        TEXT NOT NULL,
+  role        TEXT NOT NULL DEFAULT '',
+  text        TEXT NOT NULL DEFAULT '',
+  active      BOOLEAN NOT NULL DEFAULT true,
+  sort_order  INTEGER NOT NULL DEFAULT 0
+);
+
+-- ----------------------------------------------------------
 -- ADMIN USERS & SESSIONS (staff accounts with granular permissions)
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS admin_users (
@@ -174,6 +187,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
   can_schedule       BOOLEAN NOT NULL DEFAULT false,
   can_services       BOOLEAN NOT NULL DEFAULT false,
   can_vacancies      BOOLEAN NOT NULL DEFAULT false,
+  can_testimonials   BOOLEAN NOT NULL DEFAULT false,
   can_content        BOOLEAN NOT NULL DEFAULT false,
   can_notifications  BOOLEAN NOT NULL DEFAULT false,
   active             BOOLEAN NOT NULL DEFAULT true,

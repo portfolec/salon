@@ -4,6 +4,7 @@ export interface AdminPermissions {
   schedule: boolean
   services: boolean
   vacancies: boolean
+  testimonials: boolean
   content: boolean
   notifications: boolean
 }
