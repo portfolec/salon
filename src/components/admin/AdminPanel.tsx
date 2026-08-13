@@ -11,6 +11,7 @@ import AdminSchedule from './AdminSchedule'
 import AdminNotifications from './AdminNotifications'
 import AdminStats from './AdminStats'
 import AdminUsers from './AdminUsers'
+import AdminMySchedule from './AdminMySchedule'
 import Logo from '../Logo'
 import { hasPermission, type AdminUser, type AdminPermissions } from '../../lib/auth'
 import {
@@ -20,7 +21,7 @@ import {
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
-type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'testimonials' | 'schedule' | 'stats' | 'content' | 'notifications' | 'users'
+type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'testimonials' | 'schedule' | 'stats' | 'content' | 'notifications' | 'users' | 'my-schedule'
 
 const ALL_TABS: { id: Tab; label: string; Icon: React.ElementType; permission?: keyof AdminPermissions; ownerOnly?: boolean }[] = [
   { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank, permission: 'bookings' },
@@ -33,6 +34,11 @@ const ALL_TABS: { id: Tab; label: string; Icon: React.ElementType; permission?: 
   { id: 'content',       label: 'Контент',       Icon: TextT,         permission: 'content' },
   { id: 'notifications', label: 'Уведомления',   Icon: Bell,          permission: 'notifications' },
   { id: 'users',         label: 'Пользователи',  Icon: ShieldCheck,   ownerOnly: true },
+]
+
+/** Master accounts get a minimal, fixed nav scoped to their own data — no permission system involved. */
+const MASTER_TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
+  { id: 'my-schedule', label: 'Мой график', Icon: Clock },
 ]
 
 /** Reads the requested tab id from the URL hash, e.g. "#admin/services" -> "services". */
@@ -48,7 +54,9 @@ interface AdminPanelProps {
 
 export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
   const tabs = useMemo(
-    () => ALL_TABS.filter(t => t.ownerOnly ? user.role === 'owner' : hasPermission(user, t.permission!)),
+    () => user.role === 'master'
+      ? MASTER_TABS
+      : ALL_TABS.filter(t => t.ownerOnly ? user.role === 'owner' : hasPermission(user, t.permission!)),
     [user],
   )
   const isAllowed = useCallback((id: string) => tabs.some(t => t.id === id), [tabs])
@@ -101,8 +109,8 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
           </button>
         </div>
 
-        {/* DB status badge */}
-        {isDb ? (
+        {/* DB status badge — not shown in the master's own cabinet */}
+        {user.role !== 'master' && (isDb ? (
           dbOk ? (
             <motion.div
               initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: EASE_OUT }}
@@ -136,7 +144,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-500" />
             <span className="text-[10px] font-medium text-zinc-400 tracking-wide">База не настроена</span>
           </div>
-        )}
+        ))}
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
@@ -182,7 +190,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
           </div>
           <div className="min-w-0">
             <p className="text-xs text-white font-medium truncate">{user.username}</p>
-            <p className="text-[10px] text-zinc-500">{user.role === 'owner' ? 'Владелец' : 'Сотрудник'}</p>
+            <p className="text-[10px] text-zinc-500">{user.role === 'owner' ? 'Владелец' : user.role === 'master' ? 'Мастер' : 'Сотрудник'}</p>
           </div>
         </div>
 
@@ -256,6 +264,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
               {activeTab === 'content'       && <AdminContent />}
               {activeTab === 'notifications' && <AdminNotifications />}
               {activeTab === 'users'         && <AdminUsers currentUser={user} />}
+              {activeTab === 'my-schedule'   && <AdminMySchedule />}
             </motion.div>
           </AnimatePresence>
         </main>

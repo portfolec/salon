@@ -47,8 +47,9 @@ export async function fetchMe(): Promise<AdminUser> {
 export interface AdminUserInput {
   username: string
   password: string
-  role?: 'owner' | 'staff'
+  role?: 'owner' | 'staff' | 'master'
   permissions?: Partial<AdminUser['permissions']>
+  masterId?: string | null
 }
 
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
@@ -61,13 +62,40 @@ export async function createAdminUser(input: AdminUserInput): Promise<AdminUser>
 
 export async function updateAdminUser(
   id: string,
-  patch: { password?: string; role?: 'owner' | 'staff'; active?: boolean; permissions?: Partial<AdminUser['permissions']> },
+  patch: { password?: string; role?: 'owner' | 'staff' | 'master'; active?: boolean; permissions?: Partial<AdminUser['permissions']>; masterId?: string | null },
 ): Promise<AdminUser> {
   return http<AdminUser>(`/api/admin-users/${id}`, { method: 'PUT', body: JSON.stringify(patch) })
 }
 
 export async function deleteAdminUser(id: string): Promise<void> {
   await http<void>(`/api/admin-users/${id}`, { method: 'DELETE' })
+}
+
+// ─── MASTER PERSONAL CABINET (self-service) ─────────────────────────────────
+
+export interface MyScheduleDay {
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  active: boolean
+}
+
+export interface MyDayOff {
+  id: string
+  date: string
+  reason: string
+}
+
+export async function fetchMyBookings(): Promise<Booking[]> {
+  return http<Booking[]>('/api/my/bookings')
+}
+
+export async function fetchMySchedule(): Promise<MyScheduleDay[]> {
+  return http<MyScheduleDay[]>('/api/my/schedule')
+}
+
+export async function fetchMyDaysOff(): Promise<MyDayOff[]> {
+  return http<MyDayOff[]>('/api/my/days-off')
 }
 
 // ─── FILE UPLOADS ────────────────────────────────────────────────────────────

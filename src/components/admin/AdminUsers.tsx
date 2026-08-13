@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import * as api from '../../lib/api'
+import { useData } from '../../context/DataContext'
 import type { AdminUser, AdminPermissions } from '../../lib/auth'
 import {
-  Plus, Trash, X, Check, ShieldCheck, User, Warning,
+  Plus, Trash, X, Check, ShieldCheck, User, Warning, Scissors,
 } from '@phosphor-icons/react'
 
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
@@ -34,8 +35,9 @@ const emptyPermissions: AdminPermissions = {
 interface FormState {
   username: string
   password: string
-  role: 'owner' | 'staff'
+  role: 'owner' | 'staff' | 'master'
   permissions: AdminPermissions
+  masterId: string | null
 }
 
 function UserForm({
@@ -47,8 +49,10 @@ function UserForm({
   onCancel: () => void
   saving: boolean
 }) {
+  const { masters } = useData()
   const [form, setForm] = useState<FormState>(initial)
   const valid = form.username.trim().length > 0 && (!isNew || form.password.length >= 6)
+    && (form.role !== 'master' || !!form.masterId)
 
   const togglePerm = (key: keyof AdminPermissions) =>
     setForm(f => ({ ...f, permissions: { ...f.permissions, [key]: !f.permissions[key] } }))
@@ -74,18 +78,38 @@ function UserForm({
 
       <div>
         <label className="block text-xs text-zinc-400 mb-2">Роль</label>
-        <div className="flex gap-2">
-          {(['staff', 'owner'] as const).map(r => (
-            <button key={r} type="button" onClick={() => setForm(f => ({ ...f, role: r }))}
+        <div className="flex flex-wrap gap-2">
+          {(['staff', 'owner', 'master'] as const).map(r => (
+            <button key={r} type="button" onClick={() => setForm(f => ({
+              ...f,
+              role: r,
+              permissions: r === 'master' ? emptyPermissions : f.permissions,
+            }))}
               className={`px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors
                 ${form.role === r
                   ? 'bg-[var(--color-accent)]/15 border-[var(--color-accent)] text-[var(--color-accent-light)]'
                   : 'bg-zinc-900 border-zinc-700 text-zinc-400 hover:text-white'}`}>
-              {r === 'owner' ? 'Владелец (полный доступ)' : 'Сотрудник'}
+              {r === 'owner' ? 'Владелец (полный доступ)' : r === 'master' ? 'Мастер (личный кабинет)' : 'Сотрудник'}
             </button>
           ))}
         </div>
       </div>
+
+      {form.role === 'master' && (
+        <div>
+          <label className="block text-xs text-zinc-400 mb-1.5">Мастер *</label>
+          <select value={form.masterId ?? ''} onChange={e => setForm(f => ({ ...f, masterId: e.target.value || null }))}
+            className={inputCls}>
+            <option value="">Выберите мастера…</option>
+            {masters.map(m => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] text-zinc-500">
+            Этот аккаунт увидит только свои заявки (телефоны клиентов скрыты) и свой график работы.
+          </p>
+        </div>
+      )}
 
       {form.role === 'staff' && (
         <div>
@@ -120,6 +144,7 @@ function UserForm({
 }
 
 export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) {
+  const { masters } = useData()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -143,6 +168,7 @@ export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) 
     try {
       const created = await api.createAdminUser({
         username: f.username.trim(), password: f.password, role: f.role, permissions: f.permissions,
+        masterId: f.role === 'master' ? f.masterId : null,
       })
       setUsers(prev => [...prev, created])
       setAdding(false)
@@ -159,6 +185,7 @@ export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) 
     try {
       const updated = await api.updateAdminUser(id, {
         role: f.role, permissions: f.permissions,
+        masterId: f.role === 'master' ? f.masterId : null,
         ...(f.password ? { password: f.password } : {}),
       })
       setUsers(prev => prev.map(u => u.id === id ? updated : u))
@@ -218,7 +245,7 @@ export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) 
             <motion.div key="add-form" style={{ overflow: 'hidden' }} {...formMotion}>
               <UserForm
                 isNew
-                initial={{ username: '', password: '', role: 'staff', permissions: emptyPermissions }}
+                initial={{ username: '', password: '', role: 'staff', permissions: emptyPermissions, masterId: null }}
                 onSave={handleCreate}
                 onCancel={() => setAdding(false)}
                 saving={saving}
@@ -252,7 +279,7 @@ export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) 
                   <motion.div key="edit" style={{ overflow: 'hidden' }} {...formMotion}>
                     <UserForm
                       isNew={false}
-                      initial={{ username: u.username, password: '', role: u.role, permissions: u.permissions }}
+                      initial={{ username: u.username, password: '', role: u.role, permissions: u.permissions, masterId: u.masterId }}
                       onSave={f => handleUpdate(u.id, f)}
                       onCancel={() => setEditingId(null)}
                       saving={saving}
@@ -273,13 +300,19 @@ export default function AdminUsers({ currentUser }: { currentUser: AdminUser }) 
                             <span className="text-[10px] px-1.5 py-0.5 bg-zinc-700 text-zinc-400 rounded-sm">Вы</span>
                           )}
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-sm font-medium
-                            ${u.role === 'owner' ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent-light)]' : 'bg-zinc-700 text-zinc-300'}`}>
-                            {u.role === 'owner' ? 'Владелец' : 'Сотрудник'}
+                            ${u.role === 'owner' ? 'bg-[var(--color-accent)]/20 text-[var(--color-accent-light)]' : u.role === 'master' ? 'bg-sky-500/15 text-sky-300' : 'bg-zinc-700 text-zinc-300'}`}>
+                            {u.role === 'owner' ? 'Владелец' : u.role === 'master' ? 'Мастер' : 'Сотрудник'}
                           </span>
                           {!u.active && (
                             <span className="text-[10px] px-1.5 py-0.5 bg-red-500/15 text-red-300 rounded-sm">Отключён</span>
                           )}
                         </div>
+                        {u.role === 'master' && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                            <Scissors size={12} className="text-zinc-500" />
+                            {masters.find(m => m.id === u.masterId)?.name ?? 'Мастер не выбран'}
+                          </div>
+                        )}
                         {u.role === 'staff' && (
                           <div className="flex flex-wrap gap-1.5">
                             {PERMISSION_LABELS.filter(p => u.permissions[p.key]).map(p => (

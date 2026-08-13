@@ -11,8 +11,8 @@ const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 type PeriodKey = '7d' | '30d' | 'month' | 'all' | 'custom'
 
 const PERIODS: { id: PeriodKey; label: string }[] = [
-  { id: '7d', label: '7 дней' },
-  { id: '30d', label: '30 дней' },
+  { id: '7d', label: 'Ближайшие 7 дней' },
+  { id: '30d', label: 'Ближайшие 30 дней' },
   { id: 'month', label: 'Этот месяц' },
   { id: 'all', label: 'Весь период' },
   { id: 'custom', label: 'Свой период' },
@@ -41,12 +41,12 @@ export default function AdminStats() {
   const { from, to, label } = useMemo(() => {
     const today = new Date()
     if (period === '7d') {
-      const start = new Date(today); start.setDate(start.getDate() - 6)
-      return { from: toDateStr(start), to: toDateStr(today), label: 'за последние 7 дней' }
+      const end = new Date(today); end.setDate(end.getDate() + 6)
+      return { from: toDateStr(today), to: toDateStr(end), label: 'на ближайшие 7 дней' }
     }
     if (period === '30d') {
-      const start = new Date(today); start.setDate(start.getDate() - 29)
-      return { from: toDateStr(start), to: toDateStr(today), label: 'за последние 30 дней' }
+      const end = new Date(today); end.setDate(end.getDate() + 29)
+      return { from: toDateStr(today), to: toDateStr(end), label: 'на ближайшие 30 дней' }
     }
     if (period === 'month') {
       const start = new Date(today.getFullYear(), today.getMonth(), 1)

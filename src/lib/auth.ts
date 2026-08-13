@@ -12,7 +12,8 @@ export interface AdminPermissions {
 export interface AdminUser {
   id: string
   username: string
-  role: 'owner' | 'staff'
+  role: 'owner' | 'staff' | 'master'
+  masterId: string | null
   active: boolean
   createdAt: string
   permissions: AdminPermissions

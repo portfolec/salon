@@ -181,7 +181,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   username           TEXT UNIQUE NOT NULL,
   password_hash      TEXT NOT NULL,
-  role               TEXT NOT NULL DEFAULT 'staff', -- 'owner' | 'staff'
+  role               TEXT NOT NULL DEFAULT 'staff', -- 'owner' | 'staff' | 'master'
+  master_id          UUID REFERENCES masters(id) ON DELETE SET NULL, -- set only for role='master'
   can_bookings       BOOLEAN NOT NULL DEFAULT true,
   can_masters        BOOLEAN NOT NULL DEFAULT false,
   can_schedule       BOOLEAN NOT NULL DEFAULT false,
@@ -196,7 +197,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
 
 -- 'owner' accounts implicitly bypass every can_* check in the API and can
 -- also manage other admin_users; 'staff' accounts are limited to their
--- granted permissions.
+-- granted permissions; 'master' accounts have no can_* permissions and are
+-- restricted to their own bookings/schedule via the /api/my/* endpoints.
 
 CREATE TABLE IF NOT EXISTS admin_sessions (
   token       TEXT PRIMARY KEY,
