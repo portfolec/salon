@@ -36,13 +36,14 @@ function pad(n: number) { return String(n).padStart(2, '0') }
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminBookings() {
-  const { bookings, updateBookingStatus, deleteBooking, addBooking, services, masters } = useData()
+  const { bookings, updateBookingStatus, updateBookingMaster, deleteBooking, addBooking, services, masters } = useData()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [changingMasterId, setChangingMasterId] = useState<string | null>(null)
 
   // ── availability-driven date/time picker for the manual "add booking" form ──
   const today = new Date()
@@ -62,6 +63,18 @@ export default function AdminBookings() {
       alert('Не удалось обновить статус записи. Проверьте подключение и попробуйте снова.')
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  const handleChangeMaster = async (id: string, masterId: string | null) => {
+    setChangingMasterId(id)
+    try {
+      await updateBookingMaster(id, masterId)
+    } catch (e) {
+      console.error('[AdminBookings] master change failed', e)
+      alert(e instanceof Error ? e.message : 'Не удалось изменить мастера. Проверьте подключение и попробуйте снова.')
+    } finally {
+      setChangingMasterId(null)
     }
   }
 
@@ -148,29 +161,35 @@ export default function AdminBookings() {
       return
     }
     setSaving(true)
-    const svc = services.find(s => s.id === form.serviceId)
-    const mstr = masters.find(m => m.id === form.masterId)
-    const channelNote = `[${SOURCE_LABELS[form.source]}]`
-    const comment = form.comment.trim()
-      ? `${channelNote} ${form.comment.trim()}`
-      : channelNote
+    try {
+      const svc = services.find(s => s.id === form.serviceId)
+      const mstr = masters.find(m => m.id === form.masterId)
+      const channelNote = `[${SOURCE_LABELS[form.source]}]`
+      const comment = form.comment.trim()
+        ? `${channelNote} ${form.comment.trim()}`
+        : channelNote
 
-    await addBooking({
-      service: svc?.name ?? '',
-      serviceId: form.serviceId,
-      master: mstr?.name ?? null,
-      masterId: form.masterId || undefined,
-      date: form.date,
-      time: form.time,
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      comment,
-      status: 'confirmed',
-      source: form.source,
-    })
-    setSaving(false)
-    setShowForm(false)
-    resetForm()
+      await addBooking({
+        service: svc?.name ?? '',
+        serviceId: form.serviceId,
+        master: mstr?.name ?? null,
+        masterId: form.masterId || undefined,
+        date: form.date,
+        time: form.time,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        comment,
+        status: 'confirmed',
+        source: form.source,
+      })
+      setShowForm(false)
+      resetForm()
+    } catch (e) {
+      console.error('[AdminBookings] create failed', e)
+      alert('Не удалось сохранить запись. Проверьте подключение и попробуйте снова.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const relevantMasters = form.serviceId
@@ -202,14 +221,14 @@ export default function AdminBookings() {
           { id: 'calendar', label: 'По мастерам', Icon: UsersThree },
         ] as const).map(({ id, label, Icon }) => (
           <motion.button key={id} whileTap={{ scale: 0.96 }} onClick={() => setView(id)}
-            className={`relative flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-sm border transition-colors duration-150
+            className={`relative overflow-hidden flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-sm border transition-colors duration-150
               ${view === id ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
             {view === id && (
-              <motion.span layoutId="bookingViewPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
+              <motion.span layoutId="bookingViewPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm"
                 transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
             )}
-            <Icon size={14} weight={view === id ? 'fill' : 'regular'} />
-            {label}
+            <Icon size={14} weight={view === id ? 'fill' : 'regular'} className="relative z-10" />
+            <span className="relative z-10">{label}</span>
           </motion.button>
         ))}
       </div>
@@ -364,13 +383,13 @@ export default function AdminBookings() {
           <div className="flex flex-wrap gap-2 mb-6">
             {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
               <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
-                className={`relative px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
+                className={`relative overflow-hidden px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
                   ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
                 {filter === f && (
-                  <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm -z-10"
+                  <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm"
                     transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
                 )}
-                {f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})
+                <span className="relative z-10">{f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})</span>
               </motion.button>
             ))}
           </div>
@@ -388,7 +407,8 @@ export default function AdminBookings() {
                 {filtered.map((booking, i) => (
                   <BookingRow key={booking.id} booking={booking} index={i}
                     updatingId={updatingId} deletingId={deletingId}
-                    onStatusChange={handleStatusChange} onDelete={handleDelete} />
+                    onStatusChange={handleStatusChange} onDelete={handleDelete}
+                    masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
                 ))}
               </AnimatePresence>
             </div>

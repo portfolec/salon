@@ -60,6 +60,7 @@ interface State {
   calMonth: number
   submitted: boolean
   submitting: boolean
+  submitError: string | null
   errors: Record<string, string>
 }
 
@@ -78,6 +79,7 @@ type Action =
   | { type: 'GO_STEP'; step: Step }
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_DONE' }
+  | { type: 'SUBMIT_ERROR'; message: string }
   | { type: 'RESET' }
   | { type: 'INIT'; serviceId: string | undefined; masterId: string | undefined; hasVariants: boolean }
 
@@ -126,6 +128,7 @@ function init(initialServiceId?: string, initialMasterId?: string, initialHasVar
     calMonth: today.getMonth(),
     submitted: false,
     submitting: false,
+    submitError: null,
     errors: {},
   }
 }
@@ -184,11 +187,13 @@ function reducer(state: State, action: Action): State {
       }
     }
     case 'GO_STEP':
-      return { ...state, step: action.step, errors: {} }
+      return { ...state, step: action.step, errors: {}, submitError: null }
     case 'SUBMIT_START':
-      return { ...state, submitting: true }
+      return { ...state, submitting: true, submitError: null }
     case 'SUBMIT_DONE':
-      return { ...state, submitted: true, submitting: false }
+      return { ...state, submitted: true, submitting: false, submitError: null }
+    case 'SUBMIT_ERROR':
+      return { ...state, submitting: false, submitError: action.message }
     case 'RESET':
       return init()
     case 'INIT':
@@ -349,25 +354,32 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
 
   async function handleSubmit() {
     dispatch({ type: 'SUBMIT_START' })
-    for (const item of state.cart) {
-      const selectedSvc  = services.find(s => s.id === item.serviceId)
-      const selectedMstr = masters.find(m => m.id === item.masterId)
-      await addBooking({
-        service: selectedSvc?.name ?? '',
-        serviceId: item.serviceId,
-        variantName: item.variantName ?? undefined,
-        master: selectedMstr?.name ?? null,
-        masterId: item.masterId ?? undefined,
-        date: item.date.toLocaleDateString('en-CA'),
-        time: item.time,
-        name: state.name,
-        phone: state.phone,
-        comment: state.comment,
-        status: 'new',
-        source: 'website',
-      })
+    try {
+      for (const item of state.cart) {
+        const selectedSvc  = services.find(s => s.id === item.serviceId)
+        const selectedMstr = masters.find(m => m.id === item.masterId)
+        await addBooking({
+          service: selectedSvc?.name ?? '',
+          serviceId: item.serviceId,
+          variantName: item.variantName ?? undefined,
+          master: selectedMstr?.name ?? null,
+          masterId: item.masterId ?? undefined,
+          date: item.date.toLocaleDateString('en-CA'),
+          time: item.time,
+          name: state.name,
+          phone: state.phone,
+          comment: state.comment,
+          status: 'new',
+          source: 'website',
+        })
+      }
+      dispatch({ type: 'SUBMIT_DONE' })
+    } catch (e) {
+      const message = e instanceof Error && e.message
+        ? e.message
+        : 'Не удалось оформить запись. Проверьте подключение и попробуйте снова.'
+      dispatch({ type: 'SUBMIT_ERROR', message })
     }
-    dispatch({ type: 'SUBMIT_DONE' })
   }
 
   function cartLabel(item: CartItem) {
@@ -793,6 +805,14 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                           </div>
                         ))}
                       </div>
+                      {state.submitError && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                          className="mb-4 px-4 py-3 text-sm text-red-700 bg-red-50 border border-red-200"
+                          style={{ borderRadius: 'var(--radius-input)' }}>
+                          {state.submitError}
+                        </motion.p>
+                      )}
                       <button onClick={handleSubmit} disabled={state.submitting}
                         className="w-full py-3.5 bg-[var(--color-accent)] text-white text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[var(--color-ink)] active:scale-[0.99] transition-all disabled:opacity-60"
                         style={{ borderRadius: 'var(--radius-btn)' }}>

@@ -76,6 +76,7 @@ interface ContextValue {
 
   addBooking:           (b: Omit<Booking, 'id' | 'createdAt'>) => Promise<void>
   updateBookingStatus:  (id: string, status: Booking['status']) => Promise<void>
+  updateBookingMaster:  (id: string, masterId: string | null) => Promise<void>
   deleteBooking:        (id: string) => Promise<void>
 
   addVacancy:    (v: Omit<Vacancy, 'id'>) => Promise<void>
@@ -236,30 +237,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // ── BOOKINGS ──────────────────────────────────────────────────────────────
   const addBooking = async (b: Omit<Booking, 'id' | 'createdAt'>) => {
     if (isDb) {
-      await api.createBooking(b)
+      const created = await api.createBooking(b)
+      setBookings(prev => [created, ...prev])
     } else {
       const nb: Booking = { ...b, id: Date.now().toString(), createdAt: new Date().toISOString(), status: 'new' }
       setBookings(prev => { const n = [nb, ...prev]; saveLS('bookings', n); return n })
     }
 
-    // ── EmailJS notification (fire-and-forget) ───────────────────
-    const { emailjsServiceId, emailjsTemplateId, emailjsPublicKey, notificationEmail } = content
-    if (emailjsServiceId && emailjsTemplateId && emailjsPublicKey && notificationEmail) {
-      emailjs.send(
-        emailjsServiceId,
-        emailjsTemplateId,
-        {
-          to_email:     notificationEmail,
-          client_name:  b.name,
-          client_phone: b.phone,
-          service:      b.variantName ? `${b.service} (${b.variantName})` : b.service,
-          master:       b.master ?? 'Любой мастер',
-          date:         b.date,
-          time:         b.time,
-          comment:      b.comment || '—',
-        },
-        emailjsPublicKey,
-      ).catch(err => console.warn('[EmailJS] notification failed (non-fatal):', err))
+    // ── EmailJS notification (fire-and-forget, never blocks/fails the booking) ───
+    try {
+      const { emailjsServiceId, emailjsTemplateId, emailjsPublicKey, notificationEmail } = content
+      if (emailjsServiceId && emailjsTemplateId && emailjsPublicKey && notificationEmail) {
+        emailjs.send(
+          emailjsServiceId,
+          emailjsTemplateId,
+          {
+            to_email:     notificationEmail,
+            client_name:  b.name,
+            client_phone: b.phone,
+            service:      b.variantName ? `${b.service} (${b.variantName})` : b.service,
+            master:       b.master ?? 'Любой мастер',
+            date:         b.date,
+            time:         b.time,
+            comment:      b.comment || '—',
+          },
+          emailjsPublicKey,
+        ).catch(err => console.warn('[EmailJS] notification failed (non-fatal):', err))
+      }
+    } catch (err) {
+      console.warn('[EmailJS] notification failed (non-fatal):', err)
     }
   }
 
@@ -278,6 +284,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setBookings(prev => prev.filter(x => x.id !== id))
     } else {
       setBookings(prev => { const n = prev.filter(x => x.id !== id); saveLS('bookings', n); return n })
+    }
+  }
+
+  const updateBookingMaster = async (id: string, masterId: string | null) => {
+    if (isDb) {
+      const { masterId: newId, masterName } = await api.updateBookingMaster(id, masterId)
+      setBookings(prev => prev.map(x => x.id === id ? { ...x, masterId: newId, master: masterName || null } : x))
+    } else {
+      const masterName = masterId ? (masters.find(m => m.id === masterId)?.name ?? '') : null
+      setBookings(prev => { const n = prev.map(x => x.id === id ? { ...x, masterId, master: masterName } : x); saveLS('bookings', n); return n })
     }
   }
 
@@ -356,7 +372,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       services, masters, bookings, vacancies, testimonials, content, loading, newBookingsCount, isDb, dbError, dbOk,
       addService, updateService, deleteService,
       addMaster, updateMaster, deleteMaster,
-      addBooking, updateBookingStatus, deleteBooking,
+      addBooking, updateBookingStatus, updateBookingMaster, deleteBooking,
       addVacancy, updateVacancy, deleteVacancy,
       addTestimonial, updateTestimonial, deleteTestimonial,
       setContent, reload, refreshBookings,

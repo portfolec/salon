@@ -1,7 +1,8 @@
+import { useState } from 'react'
 import { motion } from 'motion/react'
 import type { Booking } from '../../context/DataContext'
 import type { BookingSource } from '../../data'
-import { Phone, User, CheckCircle, XCircle, Clock, CalendarBlank, Trash } from '@phosphor-icons/react'
+import { Phone, User, UserCircle, CheckCircle, XCircle, Scissors, CalendarBlank, Trash, PencilSimple } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
@@ -15,7 +16,7 @@ export const STATUS_LABELS: Record<Booking['status'], string> = {
 export const STATUS_COLORS: Record<Booking['status'], string> = {
   new: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
   confirmed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  done: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/20',
+  done: 'bg-green-600/15 text-green-400 border-green-600/25',
   cancelled: 'bg-red-500/15 text-red-400 border-red-500/20',
 }
 
@@ -37,11 +38,17 @@ interface BookingRowProps {
   onDelete: (id: string, name: string) => void
   /** Hide the date in the details grid — useful when already grouped by day. */
   hideDate?: boolean
+  /** List of masters to pick from when reassigning a booking. Omit to hide the "change master" control. */
+  masters?: { id: string; name: string }[]
+  onChangeMaster?: (id: string, masterId: string | null) => void
+  changingMasterId?: string | null
 }
 
 export function BookingRow({
   booking, index = 0, updatingId, deletingId, onStatusChange, onDelete, hideDate,
+  masters, onChangeMaster, changingMasterId,
 }: BookingRowProps) {
+  const [editingMaster, setEditingMaster] = useState(false)
   return (
     <motion.div layout="position"
       initial={{ opacity: 0, y: 12 }}
@@ -88,10 +95,39 @@ export function BookingRow({
                 <span>{booking.time}</span>
               </div>
             )}
+            <div className="flex items-center gap-2 text-zinc-300 min-w-0">
+              <UserCircle size={14} className="text-zinc-500 shrink-0" />
+              {editingMaster && onChangeMaster ? (
+                <select
+                  autoFocus
+                  defaultValue={booking.masterId ?? ''}
+                  disabled={changingMasterId === booking.id}
+                  onChange={e => { onChangeMaster(booking.id, e.target.value || null); setEditingMaster(false) }}
+                  onBlur={() => setEditingMaster(false)}
+                  className="bg-zinc-900 border border-zinc-600 text-zinc-100 text-sm rounded-sm px-2 py-1 focus:outline-none focus:border-[var(--color-accent)] max-w-full">
+                  <option value="">Не назначен</option>
+                  {(masters ?? []).map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <>
+                  <span className={booking.master ? 'font-medium truncate' : 'text-amber-400/80 italic'}>
+                    {changingMasterId === booking.id ? 'Сохранение...' : (booking.master || 'Автоназначение не удалось')}
+                  </span>
+                  {onChangeMaster && changingMasterId !== booking.id && (
+                    <button onClick={() => setEditingMaster(true)}
+                      className="text-zinc-500 hover:text-[var(--color-accent)] transition-colors shrink-0" title="Изменить мастера">
+                      <PencilSimple size={13} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-zinc-300">
-              <Clock size={14} className="text-zinc-500 shrink-0" />
+              <Scissors size={14} className="text-zinc-500 shrink-0" />
               <span>
-                {booking.service}{booking.variantName ? ` (${booking.variantName})` : ''}{booking.master ? ` — ${booking.master}` : ''}
+                {booking.service}{booking.variantName ? ` (${booking.variantName})` : ''}
               </span>
             </div>
           </div>
@@ -111,7 +147,7 @@ export function BookingRow({
           {booking.status === 'confirmed' && (
             <button onClick={() => onStatusChange(booking.id, 'done')}
               disabled={updatingId === booking.id}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-600/20 text-zinc-400 border border-zinc-600/30 text-xs font-medium rounded-sm hover:bg-zinc-600/30 transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600/20 text-green-400 border border-green-600/30 text-xs font-medium rounded-sm hover:bg-green-600/30 transition-colors disabled:opacity-50">
               <CheckCircle size={14} />{updatingId === booking.id ? 'Сохранение...' : 'Выполнена'}
             </button>
           )}

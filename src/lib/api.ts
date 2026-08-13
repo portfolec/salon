@@ -236,6 +236,13 @@ export async function updateBookingStatus(id: string, status: Booking['status'])
   await http<void>(`/api/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
 }
 
+export async function updateBookingMaster(id: string, masterId: string | null): Promise<{ masterId: string | null; masterName: string }> {
+  return http<{ masterId: string | null; masterName: string }>(`/api/bookings/${id}/master`, {
+    method: 'PATCH',
+    body: JSON.stringify({ masterId }),
+  })
+}
+
 export async function deleteBooking(id: string): Promise<void> {
   await http<void>(`/api/bookings/${id}`, { method: 'DELETE' })
 }

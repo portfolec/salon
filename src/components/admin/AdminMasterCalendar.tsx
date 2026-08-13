@@ -21,7 +21,7 @@ function buildCalendarGrid(year: number, month: number): (number | null)[] {
 function pad(n: number) { return String(n).padStart(2, '0') }
 
 export default function AdminMasterCalendar() {
-  const { masters, bookings, updateBookingStatus, deleteBooking } = useData()
+  const { masters, bookings, updateBookingStatus, updateBookingMaster, deleteBooking } = useData()
   const today = new Date()
 
   const [masterId, setMasterId] = useState<string>('')
@@ -30,6 +30,7 @@ export default function AdminMasterCalendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(today.toLocaleDateString('en-CA'))
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [changingMasterId, setChangingMasterId] = useState<string | null>(null)
 
   // Default to the first master once masters load, so the view is useful immediately.
   useEffect(() => {
@@ -79,6 +80,18 @@ export default function AdminMasterCalendar() {
       alert('Не удалось удалить запись.')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleChangeMaster = async (id: string, newMasterId: string | null) => {
+    setChangingMasterId(id)
+    try {
+      await updateBookingMaster(id, newMasterId)
+    } catch (e) {
+      console.error('[AdminMasterCalendar] master change failed', e)
+      alert(e instanceof Error ? e.message : 'Не удалось изменить мастера.')
+    } finally {
+      setChangingMasterId(null)
     }
   }
 
@@ -189,7 +202,8 @@ export default function AdminMasterCalendar() {
                     {dayBookings.map((b, i) => (
                       <BookingRow key={b.id} booking={b} index={i} hideDate
                         updatingId={updatingId} deletingId={deletingId}
-                        onStatusChange={handleStatusChange} onDelete={handleDelete} />
+                        onStatusChange={handleStatusChange} onDelete={handleDelete}
+                        masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
                     ))}
                   </AnimatePresence>
                 </div>
