@@ -42,14 +42,19 @@ import YandexMetrika from './components/YandexMetrika'
 import UserAgreement from './components/UserAgreement'
 
 const ROUTE_HASHES = /^(admin|agreement)(\/|$)/
+const HASH_TOP_OFFSET = 80
 
-function scrollToHashTarget() {
+function scrollToHashTarget(smooth = true) {
   const id = decodeURIComponent(window.location.hash.replace(/^#/, ''))
   if (!id || ROUTE_HASHES.test(id)) return true
   const el = document.getElementById(id)
   if (!el) return false
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  const top = window.scrollY + el.getBoundingClientRect().top - HASH_TOP_OFFSET
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: reduce || !smooth ? 'auto' : 'smooth',
+  })
   return true
 }
 
@@ -59,24 +64,27 @@ function SiteApp() {
   const [preselectedMaster, setPreselectedMaster] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    let attempts = 0
-    let timer: number | undefined
+    let cancelled = false
+    const timers: number[] = []
 
-    const attempt = () => {
-      if (timer) window.clearTimeout(timer)
-      if (scrollToHashTarget() || attempts++ > 40) return
-      timer = window.setTimeout(attempt, 50)
+    const attempt = (smooth: boolean) => {
+      if (!cancelled) scrollToHashTarget(smooth)
     }
 
-    attempt()
-    const onHash = () => {
-      attempts = 0
-      attempt()
+    attempt(false)
+    for (const delay of [120, 350, 700, 1400]) {
+      timers.push(window.setTimeout(() => attempt(false), delay))
     }
+
+    const onHash = () => attempt(true)
+    const onLoad = () => attempt(false)
     window.addEventListener('hashchange', onHash)
+    window.addEventListener('load', onLoad)
     return () => {
-      if (timer) window.clearTimeout(timer)
+      cancelled = true
+      timers.forEach(id => window.clearTimeout(id))
       window.removeEventListener('hashchange', onHash)
+      window.removeEventListener('load', onLoad)
     }
   }, [])
 

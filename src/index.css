@@ -64,11 +64,7 @@ a:active {
 
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 88px;
-}
-
-section[id] {
-  scroll-margin-top: 88px;
+  scroll-padding-top: 80px;
 }
 
 body {

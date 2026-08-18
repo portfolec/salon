@@ -1,9 +1,10 @@
 'use client'
 import { motion } from 'motion/react'
 import {
-  MapPin, Phone, Clock, TelegramLogo, InstagramLogo, ChatCircle
+  MapPin, Phone, Clock, TelegramLogo, InstagramLogo
 } from '@phosphor-icons/react'
 import { useData } from '../context/DataContext'
+import MaxIcon from './MaxIcon'
 
 function VkIcon({ size = 20 }: { size?: number }) {
   return (
@@ -19,8 +20,8 @@ export default function Contacts() {
   const twoGisUrl = content.twoGisUrl?.trim()
 
   return (
-    <section id="contacts" className="py-24 lg:py-32">
-      <div className="max-w-7xl mx-auto px-6 lg:px-10">
+    <section className="py-24 lg:py-32">
+      <div id="contacts" className="max-w-7xl mx-auto px-6 lg:px-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -81,7 +82,7 @@ export default function Contacts() {
                   {content.maxUrl?.trim() && (
                     <a href={content.maxUrl.trim()} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
-                      <ChatCircle size={20} weight="light" />MAX
+                      <MaxIcon size={20} />MAX
                     </a>
                   )}
                 </div>
