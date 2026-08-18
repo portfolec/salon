@@ -1,7 +1,7 @@
 'use client'
 import { motion } from 'motion/react'
 import {
-  MapPin, Phone, Clock, TelegramLogo, InstagramLogo
+  MapPin, Phone, Clock, TelegramLogo, InstagramLogo, ChatCircle
 } from '@phosphor-icons/react'
 import { useData } from '../context/DataContext'
 
@@ -76,6 +76,12 @@ export default function Contacts() {
                     <a href={content.vkUrl} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
                       <VkIcon size={20} />ВКонтакте
+                    </a>
+                  )}
+                  {content.maxUrl?.trim() && (
+                    <a href={content.maxUrl.trim()} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-[var(--color-ink-secondary)] hover:text-[var(--color-accent)] transition-colors">
+                      <ChatCircle size={20} weight="light" />MAX
                     </a>
                   )}
                 </div>

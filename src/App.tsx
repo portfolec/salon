@@ -41,10 +41,44 @@ import AdminLogin from './components/admin/AdminLogin'
 import YandexMetrika from './components/YandexMetrika'
 import UserAgreement from './components/UserAgreement'
 
+const ROUTE_HASHES = /^(admin|agreement)(\/|$)/
+
+function scrollToHashTarget() {
+  const id = decodeURIComponent(window.location.hash.replace(/^#/, ''))
+  if (!id || ROUTE_HASHES.test(id)) return true
+  const el = document.getElementById(id)
+  if (!el) return false
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  return true
+}
+
 function SiteApp() {
   const [modalOpen, setModalOpen] = useState(false)
   const [preselectedService, setPreselectedService] = useState<string | undefined>(undefined)
   const [preselectedMaster, setPreselectedMaster] = useState<string | undefined>(undefined)
+
+  useEffect(() => {
+    let attempts = 0
+    let timer: number | undefined
+
+    const attempt = () => {
+      if (timer) window.clearTimeout(timer)
+      if (scrollToHashTarget() || attempts++ > 40) return
+      timer = window.setTimeout(attempt, 50)
+    }
+
+    attempt()
+    const onHash = () => {
+      attempts = 0
+      attempt()
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+      window.removeEventListener('hashchange', onHash)
+    }
+  }, [])
 
   const handleOpenBooking = (serviceId?: string, masterId?: string) => {
     setPreselectedService(serviceId)

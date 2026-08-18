@@ -1,6 +1,6 @@
 import Logo from './Logo'
 import { useData } from '../context/DataContext'
-import { TelegramLogo, InstagramLogo, Phone, MapPin, Clock } from '@phosphor-icons/react'
+import { TelegramLogo, InstagramLogo, ChatCircle, Phone, MapPin, Clock } from '@phosphor-icons/react'
 
 function VkIcon({ size = 16 }: { size?: number }) {
   return (
@@ -48,8 +48,17 @@ export default function Footer() {
               {content.vkUrl && (
                 <a href={content.vkUrl} target="_blank" rel="noopener noreferrer"
                   className="w-9 h-9 border border-[rgba(255,255,255,0.15)] flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors duration-200"
-                  style={{ borderRadius: '2px' }}>
+                  style={{ borderRadius: '2px' }}
+                  aria-label="ВКонтакте">
                   <VkIcon size={16} />
+                </a>
+              )}
+              {content.maxUrl?.trim() && (
+                <a href={content.maxUrl.trim()} target="_blank" rel="noopener noreferrer"
+                  className="w-9 h-9 border border-[rgba(255,255,255,0.15)] flex items-center justify-center hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-colors duration-200"
+                  style={{ borderRadius: '2px' }}
+                  aria-label="MAX">
+                  <ChatCircle size={16} />
                 </a>
               )}
             </div>

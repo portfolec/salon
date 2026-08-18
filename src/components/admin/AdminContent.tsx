@@ -55,6 +55,7 @@ export default function AdminContent() {
               { label: 'Ссылка Telegram',  field: 'telegramUrl',  placeholder: 'https://t.me/...' },
               { label: 'Ссылка Instagram', field: 'instagramUrl', placeholder: 'https://instagram.com/...' },
               { label: 'Ссылка ВКонтакте', field: 'vkUrl',          placeholder: 'https://vk.com/...' },
+              { label: 'Ссылка MAX',       field: 'maxUrl',         placeholder: 'https://max.ru/...' },
               { label: 'Ссылка Яндекс Карты', field: 'yandexMapsUrl', placeholder: 'https://yandex.ru/maps/...' },
               { label: 'Ссылка 2ГИС', field: 'twoGisUrl',           placeholder: 'https://2gis.ru/...' },
             ] as { label: string; field: keyof SiteContent; placeholder: string }[]).map(({ label, field, placeholder }) => (

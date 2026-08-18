@@ -43,6 +43,7 @@ export interface SiteContent {
   telegramUrl: string
   instagramUrl: string
   vkUrl?: string
+  maxUrl?: string
   yandexMapsUrl?: string
   twoGisUrl?: string
   yandexMetrikaId?: string
