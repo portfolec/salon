@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import * as api from '../../lib/api'
-import type { MyScheduleDay, MyDayOff } from '../../lib/api'
+import type { WorkDay } from '../../lib/api'
 import type { Booking } from '../../context/DataContext'
 import { MyBookingCard } from './myBookingShared'
 import { CaretLeft, CaretRight, CalendarBlank, Clock, Warning } from '@phosphor-icons/react'
@@ -26,8 +26,7 @@ export default function AdminMySchedule() {
   const today = new Date()
 
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [schedule, setSchedule] = useState<MyScheduleDay[]>([])
-  const [daysOff, setDaysOff] = useState<MyDayOff[]>([])
+  const [workDays, setWorkDays] = useState<WorkDay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,11 +37,11 @@ export default function AdminMySchedule() {
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    Promise.all([api.fetchMyBookings(), api.fetchMySchedule(), api.fetchMyDaysOff()])
-      .then(([b, s, d]) => { setBookings(b); setSchedule(s); setDaysOff(d) })
+    Promise.all([api.fetchMyBookings(), api.fetchMyWorkDays(calYear, calMonth)])
+      .then(([b, w]) => { setBookings(b); setWorkDays(w) })
       .catch(e => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [calYear, calMonth])
 
   useEffect(() => { load() }, [load])
 
@@ -54,8 +53,11 @@ export default function AdminMySchedule() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookings])
 
-  const offDates = useMemo(() => new Set(daysOff.map(d => d.date)), [daysOff])
-  const workingDows = useMemo(() => new Set(schedule.filter(s => s.active).map(s => s.dayOfWeek)), [schedule])
+  const workByDate = useMemo(() => {
+    const map: Record<string, WorkDay['intervals']> = {}
+    workDays.forEach(d => { map[d.date] = d.intervals })
+    return map
+  }, [workDays])
 
   const navMonth = (dir: number) => {
     let m = calMonth + dir
@@ -64,12 +66,18 @@ export default function AdminMySchedule() {
     if (m > 11) { m = 0; y += 1 }
     setCalMonth(m)
     setCalYear(y)
+    setSelectedDate(prev => {
+      if (prev && prev.startsWith(`${y}-${pad(m + 1)}`)) return prev
+      if (today.getFullYear() === y && today.getMonth() === m) return today.toLocaleDateString('en-CA')
+      return `${y}-${pad(m + 1)}-01`
+    })
   }
 
   const dayBookings = selectedDate
     ? (byDate[selectedDate] ?? []).slice().sort((a, b) => a.time.localeCompare(b.time))
     : []
-  const selectedDayOff = selectedDate ? daysOff.find(d => d.date === selectedDate) : undefined
+  const selectedIntervals = selectedDate ? (workByDate[selectedDate] ?? []) : []
+  const isOff = selectedDate ? selectedIntervals.length === 0 : false
 
   const isToday = (day: number) =>
     today.getDate() === day && today.getMonth() === calMonth && today.getFullYear() === calYear
@@ -113,16 +121,15 @@ export default function AdminMySchedule() {
               {buildCalendarGrid(calYear, calMonth).map((day, idx) => {
                 if (!day) return <div key={idx} />
                 const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(day)}`
-                const dow = (new Date(calYear, calMonth, day).getDay() + 6) % 7
                 const dayItems = byDate[dateStr] ?? []
                 const isSel = selectedDate === dateStr
-                const isOff = offDates.has(dateStr) || !workingDows.has(dow)
+                const isOffDay = (workByDate[dateStr] ?? []).length === 0
                 const hasNew = dayItems.some(b => b.status === 'new')
                 return (
                   <button key={idx}
                     onClick={() => setSelectedDate(dateStr)}
                     className={`relative h-11 rounded-sm text-sm transition-colors duration-150 flex flex-col items-center justify-center gap-0.5
-                      ${isSel ? 'bg-[var(--color-accent)] text-white font-medium' : isOff ? 'text-zinc-700 hover:bg-zinc-700/60' : 'hover:bg-zinc-700 text-zinc-200'}
+                      ${isSel ? 'bg-[var(--color-accent)] text-white font-medium' : isOffDay ? 'text-zinc-700 hover:bg-zinc-700/60' : 'hover:bg-zinc-700 text-zinc-200'}
                       ${isToday(day) && !isSel ? 'ring-1 ring-inset ring-[var(--color-accent)]/60' : ''}`}>
                     <span>{day}</span>
                     {dayItems.length > 0 ? (
@@ -130,7 +137,7 @@ export default function AdminMySchedule() {
                         ${isSel ? 'bg-white/25 text-white' : hasNew ? 'bg-blue-500/25 text-blue-300' : 'bg-zinc-600/50 text-zinc-300'}`}>
                         {dayItems.length}
                       </span>
-                    ) : isOff && !isSel ? (
+                    ) : isOffDay && !isSel ? (
                       <span className="w-1 h-1 rounded-full bg-zinc-600" />
                     ) : null}
                   </button>
@@ -161,9 +168,11 @@ export default function AdminMySchedule() {
                     {new Date(selectedDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </span>
                   <span className="text-xs text-zinc-500">— {dayBookings.length} {dayBookings.length === 1 ? 'запись' : 'записей'}</span>
-                  {selectedDayOff && (
-                    <span className="text-xs px-2 py-0.5 rounded-sm bg-red-500/10 border border-red-500/20 text-red-300">
-                      Выходной{selectedDayOff.reason ? `: ${selectedDayOff.reason}` : ''}
+                  {isOff ? (
+                    <span className="text-xs px-2 py-0.5 rounded-sm bg-zinc-700 text-zinc-300">Выходной</span>
+                  ) : (
+                    <span className="text-xs text-zinc-400">
+                      {selectedIntervals.map(iv => `${iv.startTime}–${iv.endTime}`).join(', ')}
                     </span>
                   )}
                 </div>

@@ -174,6 +174,31 @@ export async function saveSchedule(masterId: string, days: ScheduleDay[]): Promi
   await http<void>(`/api/masters/${masterId}/schedule`, { method: 'PUT', body: JSON.stringify({ days }) })
 }
 
+export interface WorkInterval {
+  startTime: string
+  endTime: string
+}
+
+export interface WorkDay {
+  date: string
+  intervals: WorkInterval[]
+}
+
+export async function fetchWorkDays(masterId: string, year: number, month: number): Promise<WorkDay[]> {
+  return http<WorkDay[]>(`/api/masters/${masterId}/work-days?year=${year}&month=${month}`)
+}
+
+export async function saveWorkDay(masterId: string, date: string, intervals: WorkInterval[]): Promise<WorkDay> {
+  return http<WorkDay>(`/api/masters/${masterId}/work-days/${date}`, {
+    method: 'PUT',
+    body: JSON.stringify({ intervals }),
+  })
+}
+
+export async function fetchMyWorkDays(year: number, month: number): Promise<WorkDay[]> {
+  return http<WorkDay[]>(`/api/my/work-days?year=${year}&month=${month}`)
+}
+
 export interface DayOff {
   id: string
   date: string

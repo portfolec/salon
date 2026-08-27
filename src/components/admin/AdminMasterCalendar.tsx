@@ -199,8 +199,8 @@ export default function AdminMasterCalendar() {
               ) : (
                 <div className="space-y-3">
                   <AnimatePresence initial={false}>
-                    {dayBookings.map((b, i) => (
-                      <BookingRow key={b.id} booking={b} index={i} hideDate
+                    {dayBookings.map(b => (
+                      <BookingRow key={b.id} booking={b} hideDate
                         updatingId={updatingId} deletingId={deletingId}
                         onStatusChange={handleStatusChange} onDelete={handleDelete}
                         masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />

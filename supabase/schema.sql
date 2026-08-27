@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS master_disabled_variants (
 );
 
 -- ----------------------------------------------------------
--- MASTER WEEKLY SCHEDULE
+-- MASTER WEEKLY SCHEDULE  (шаблон, сохранён как исходный график)
 -- day_of_week: 0=Пн, 1=Вт, 2=Ср, 3=Чт, 4=Пт, 5=Сб, 6=Вс
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS master_schedule (
@@ -80,6 +80,28 @@ CREATE TABLE IF NOT EXISTS master_schedule (
   end_time     TIME NOT NULL DEFAULT '19:00',
   active       BOOLEAN NOT NULL DEFAULT true,
   UNIQUE (master_id, day_of_week)
+);
+
+-- ----------------------------------------------------------
+-- MASTER WORK CALENDAR (конкретные даты + несколько интервалов в день)
+-- Недельный шаблон из master_schedule копируется в месяц при первом открытии.
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS master_work_intervals (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  master_id  UUID NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  date       DATE NOT NULL,
+  start_time TIME NOT NULL,
+  end_time   TIME NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_master_work_intervals_master_date
+  ON master_work_intervals (master_id, date);
+
+CREATE TABLE IF NOT EXISTS master_work_months (
+  master_id UUID NOT NULL REFERENCES masters(id) ON DELETE CASCADE,
+  year      INTEGER NOT NULL,
+  month     INTEGER NOT NULL,
+  PRIMARY KEY (master_id, year, month)
 );
 
 -- ----------------------------------------------------------
@@ -223,6 +245,8 @@ ALTER TABLE master_services          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_disabled_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_variant_days      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_work_intervals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE master_work_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_days_off ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_content    ENABLE ROW LEVEL SECURITY;
@@ -235,6 +259,8 @@ CREATE POLICY "open" ON master_services          FOR ALL USING (true) WITH CHECK
 CREATE POLICY "open" ON master_disabled_variants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_variant_days      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON master_work_intervals FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON master_work_months FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_days_off FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON bookings        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON site_content    FOR ALL USING (true) WITH CHECK (true);

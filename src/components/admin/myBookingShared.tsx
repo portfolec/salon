@@ -15,7 +15,7 @@ export function MyBookingCard({ booking: b, index = 0, hideDate }: { booking: Bo
       transition={{ duration: 0.3, delay: index * 0.03, ease: EASE_OUT }}
       className="bg-zinc-800 border border-zinc-700 rounded-sm p-5">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <span className={`text-xs px-2.5 py-1 rounded-sm border font-medium ${STATUS_COLORS[b.status]}`}>
+        <span className={`text-xs px-2.5 py-1 rounded-sm font-medium ${STATUS_COLORS[b.status]}`}>
           {STATUS_LABELS[b.status]}
         </span>
         {b.source && (

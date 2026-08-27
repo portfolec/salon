@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useData, type Booking } from '../../context/DataContext'
 import type { BookingSource, TimeSlot } from '../../data'
@@ -6,7 +6,7 @@ import * as api from '../../lib/api'
 import { STATUS_LABELS, SOURCE_LABELS, BookingRow } from './bookingShared'
 import AdminMasterCalendar from './AdminMasterCalendar'
 import {
-  CalendarBlank, Plus, CaretLeft, CaretRight, ListBullets, UsersThree,
+  CalendarBlank, Plus, CaretLeft, CaretRight, ListBullets, UsersThree, X,
 } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
@@ -33,12 +33,25 @@ function buildCalendarGrid(year: number, month: number): (number | null)[] {
 
 function pad(n: number) { return String(n).padStart(2, '0') }
 
+function bookingStamp(b: Booking) {
+  return `${String(b.date).slice(0, 10)}T${String(b.time).slice(0, 5)}`
+}
+
+function formatDayHeading(date: string) {
+  return new Date(date + 'T12:00:00').toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminBookings() {
   const { bookings, updateBookingStatus, updateBookingMaster, deleteBooking, addBooking, services, masters } = useData()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
+  const [filterDate, setFilterDate] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -49,6 +62,8 @@ export default function AdminBookings() {
   const today = new Date()
   const [calYear, setCalYear] = useState(today.getFullYear())
   const [calMonth, setCalMonth] = useState(today.getMonth())
+  const [listYear, setListYear] = useState(today.getFullYear())
+  const [listMonth, setListMonth] = useState(today.getMonth())
   const [availDays, setAvailDays] = useState<Set<number>>(new Set())
   const [daysLoading, setDaysLoading] = useState(false)
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
@@ -101,14 +116,39 @@ export default function AdminBookings() {
     source: 'phone' as BookingSource,
   })
 
-  const filtered = filter === 'all' ? bookings : bookings.filter(b => b.status === filter)
+  const bookingsOnDate = useMemo(
+    () => filterDate ? bookings.filter(b => b.date === filterDate) : bookings,
+    [bookings, filterDate],
+  )
+
+  const countByDate = useMemo(() => {
+    const map: Record<string, number> = {}
+    bookings.forEach(b => { map[b.date] = (map[b.date] ?? 0) + 1 })
+    return map
+  }, [bookings])
+
+  const filtered = useMemo(() => {
+    const list = filter === 'all' ? bookingsOnDate : bookingsOnDate.filter(b => b.status === filter)
+    return list.slice().sort((a, b) => bookingStamp(b).localeCompare(bookingStamp(a)))
+  }, [bookingsOnDate, filter])
+
+  const grouped = useMemo(() => {
+    const groups: { date: string; items: Booking[] }[] = []
+    for (const b of filtered) {
+      const date = String(b.date).slice(0, 10)
+      const last = groups[groups.length - 1]
+      if (last?.date === date) last.items.push(b)
+      else groups.push({ date, items: [b] })
+    }
+    return groups
+  }, [filtered])
 
   const counts = {
-    all: bookings.length,
-    new: bookings.filter(b => b.status === 'new').length,
-    confirmed: bookings.filter(b => b.status === 'confirmed').length,
-    done: bookings.filter(b => b.status === 'done').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    all: bookingsOnDate.length,
+    new: bookingsOnDate.filter(b => b.status === 'new').length,
+    confirmed: bookingsOnDate.filter(b => b.status === 'confirmed').length,
+    done: bookingsOnDate.filter(b => b.status === 'done').length,
+    cancelled: bookingsOnDate.filter(b => b.status === 'cancelled').length,
   }
 
   const resetForm = () => {
@@ -154,6 +194,15 @@ export default function AdminBookings() {
     if (m > 11) { m = 0; y += 1 }
     setCalMonth(m)
     setCalYear(y)
+  }
+
+  const navListMonth = (dir: number) => {
+    let m = listMonth + dir
+    let y = listYear
+    if (m < 0) { m = 11; y -= 1 }
+    if (m > 11) { m = 0; y += 1 }
+    setListMonth(m)
+    setListYear(y)
   }
 
   const handleCreate = async () => {
@@ -380,39 +429,118 @@ export default function AdminBookings() {
         <AdminMasterCalendar />
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 mb-6">
-            {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
-              <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
-                className={`relative overflow-hidden px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
-                  ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
-                {filter === f && (
-                  <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm"
-                    transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
-                )}
-                <span className="relative z-10">{f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})</span>
-              </motion.button>
-            ))}
-          </div>
-
-          {filtered.length === 0 ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-20 text-center">
-              <CalendarBlank size={48} weight="thin" className="text-zinc-700 mb-4" />
-              <p className="text-zinc-500 text-sm">Заявок пока нет</p>
-              <p className="text-zinc-600 text-xs mt-1">Они появятся здесь после отправки формы записи</p>
-            </motion.div>
-          ) : (
-            <div className="space-y-3">
-              <AnimatePresence initial={false}>
-                {filtered.map((booking, i) => (
-                  <BookingRow key={booking.id} booking={booking} index={i}
-                    updatingId={updatingId} deletingId={deletingId}
-                    onStatusChange={handleStatusChange} onDelete={handleDelete}
-                    masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
+          <div className="grid lg:grid-cols-[280px_1fr] gap-6 mb-6">
+            <div className="bg-zinc-800 border border-zinc-700 rounded-sm p-4 h-fit">
+              <div className="flex items-center justify-between mb-3">
+                <button type="button" onClick={() => navListMonth(-1)} className="p-1 text-zinc-400 hover:text-white transition-colors">
+                  <CaretLeft size={14} />
+                </button>
+                <span className="text-xs font-medium text-white">{MONTHS_RU[listMonth]} {listYear}</span>
+                <button type="button" onClick={() => navListMonth(1)} className="p-1 text-zinc-400 hover:text-white transition-colors">
+                  <CaretRight size={14} />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {DAYS_RU.map(d => (
+                  <div key={d} className="text-center text-[9px] text-zinc-600 py-1">{d}</div>
                 ))}
-              </AnimatePresence>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {buildCalendarGrid(listYear, listMonth).map((day, idx) => {
+                  if (!day) return <div key={idx} />
+                  const dateStr = `${listYear}-${pad(listMonth + 1)}-${pad(day)}`
+                  const count = countByDate[dateStr] ?? 0
+                  const isSel = filterDate === dateStr
+                  const isToday = today.getDate() === day && today.getMonth() === listMonth && today.getFullYear() === listYear
+                  return (
+                    <button type="button" key={idx}
+                      onClick={() => setFilterDate(isSel ? null : dateStr)}
+                      className={`relative h-9 rounded-sm text-xs transition-colors duration-150 flex flex-col items-center justify-center gap-0.5
+                        ${isSel ? 'bg-[var(--color-accent)] text-white font-medium' : 'hover:bg-zinc-700 text-zinc-200'}
+                        ${isToday && !isSel ? 'ring-1 ring-inset ring-[var(--color-accent)]/60' : ''}`}>
+                      <span>{day}</span>
+                      {count > 0 && (
+                        <span className={`text-[9px] leading-none px-1 rounded-full font-semibold
+                          ${isSel ? 'bg-white/25 text-white' : 'bg-zinc-600/50 text-zinc-300'}`}>
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-3 pt-3 border-t border-zinc-700 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-zinc-500 leading-snug">
+                  {filterDate
+                    ? new Date(filterDate + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+                    : 'Все дни'}
+                </p>
+                {filterDate && (
+                  <button type="button" onClick={() => setFilterDate(null)}
+                    className="flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white transition-colors shrink-0">
+                    <X size={12} />Все дни
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                {(['all', 'new', 'confirmed', 'done', 'cancelled'] as const).map(f => (
+                  <motion.button key={f} whileTap={{ scale: 0.95 }} onClick={() => setFilter(f)}
+                    className={`relative overflow-hidden px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors duration-150
+                      ${filter === f ? 'text-white border-[var(--color-accent)]' : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'}`}>
+                    {filter === f && (
+                      <motion.span layoutId="bookingFilterPill" className="absolute inset-0 bg-[var(--color-accent)] rounded-sm"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+                    )}
+                    <span className="relative z-10">{f === 'all' ? 'Все' : STATUS_LABELS[f]} ({counts[f]})</span>
+                  </motion.button>
+                ))}
+              </div>
+
+              {filtered.length === 0 ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-16 text-center bg-zinc-800/40 border border-zinc-700 rounded-sm">
+                  <CalendarBlank size={40} weight="thin" className="text-zinc-700 mb-3" />
+                  <p className="text-zinc-500 text-sm">
+                    {filterDate ? 'На этот день записей нет' : 'Заявок пока нет'}
+                  </p>
+                  {!filterDate && (
+                    <p className="text-zinc-600 text-xs mt-1">Они появятся здесь после отправки формы записи</p>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={filterDate ?? 'all'}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2, ease: EASE_OUT }}
+                  className="space-y-6"
+                >
+                  {grouped.map(group => (
+                    <section key={group.date}>
+                      {!filterDate && (
+                        <h3 className="text-sm font-medium text-zinc-300 capitalize mb-3">
+                          {formatDayHeading(group.date)}
+                          <span className="ml-2 text-xs font-normal text-zinc-600">{group.items.length}</span>
+                        </h3>
+                      )}
+                      <div className="space-y-3">
+                        {group.items.map(booking => (
+                          <BookingRow key={booking.id} booking={booking}
+                            hideDate
+                            updatingId={updatingId} deletingId={deletingId}
+                            onStatusChange={handleStatusChange} onDelete={handleDelete}
+                            masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+          </div>
         </>
       )}
     </div>
