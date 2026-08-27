@@ -162,6 +162,16 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 
 -- ----------------------------------------------------------
+-- CLIENT PROFILES (заметки к клиентам, ключ — цифры телефона)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS client_profiles (
+  phone_digits TEXT PRIMARY KEY,
+  notes        TEXT NOT NULL DEFAULT '',
+  birthday     DATE,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ----------------------------------------------------------
 -- SITE CONTENT (key-value)
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS site_content (
@@ -247,6 +257,7 @@ ALTER TABLE master_variant_days      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_schedule ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_work_intervals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_work_months ENABLE ROW LEVEL SECURITY;
+ALTER TABLE client_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_days_off ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE site_content    ENABLE ROW LEVEL SECURITY;
@@ -261,6 +272,7 @@ CREATE POLICY "open" ON master_variant_days      FOR ALL USING (true) WITH CHECK
 CREATE POLICY "open" ON master_schedule FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_work_intervals FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_work_months FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON client_profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON master_days_off FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON bookings        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON site_content    FOR ALL USING (true) WITH CHECK (true);

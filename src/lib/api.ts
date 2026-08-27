@@ -300,6 +300,35 @@ export async function deleteBooking(id: string): Promise<void> {
   await http<void>(`/api/bookings/${id}`, { method: 'DELETE' })
 }
 
+export interface ClientRecord {
+  phoneDigits: string
+  name: string
+  phone: string
+  lastDate: string
+  lastTime: string
+  master: string
+  notes: string
+  birthday: string
+}
+
+export async function fetchClients(): Promise<ClientRecord[]> {
+  return http<ClientRecord[]>('/api/clients')
+}
+
+export async function saveClientNotes(phoneDigits: string, notes: string): Promise<void> {
+  await http<void>('/api/clients/notes', {
+    method: 'PUT',
+    body: JSON.stringify({ phoneDigits, notes }),
+  })
+}
+
+export async function saveClientBirthday(phoneDigits: string, birthday: string): Promise<void> {
+  await http<void>('/api/clients/birthday', {
+    method: 'PUT',
+    body: JSON.stringify({ phoneDigits, birthday }),
+  })
+}
+
 // ─── CONTENT ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_CONTENT: SiteContent = {

@@ -12,19 +12,21 @@ import AdminNotifications from './AdminNotifications'
 import AdminStats from './AdminStats'
 import AdminUsers from './AdminUsers'
 import AdminMySchedule from './AdminMySchedule'
+import AdminClients from './AdminClients'
 import Logo from '../Logo'
 import { hasPermission, type AdminUser, type AdminPermissions } from '../../lib/auth'
 import {
   CalendarBlank, Scissors, UsersThree, TextT,
-  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase, ShieldCheck, ChatCircleText, ChartBar,
+  SignOut, List, X, ArrowSquareOut, Clock, Bell, Briefcase, ShieldCheck, ChatCircleText, ChartBar, AddressBook,
 } from '@phosphor-icons/react'
 
 const EASE_OUT: [number, number, number, number] = [0.23, 1, 0.32, 1]
 
-type Tab = 'bookings' | 'services' | 'masters' | 'vacancies' | 'testimonials' | 'schedule' | 'stats' | 'content' | 'notifications' | 'users' | 'my-schedule'
+type Tab = 'bookings' | 'clients' | 'services' | 'masters' | 'vacancies' | 'testimonials' | 'schedule' | 'stats' | 'content' | 'notifications' | 'users' | 'my-schedule'
 
 const ALL_TABS: { id: Tab; label: string; Icon: React.ElementType; permission?: keyof AdminPermissions; ownerOnly?: boolean }[] = [
   { id: 'bookings',      label: 'Заявки',        Icon: CalendarBlank, permission: 'bookings' },
+  { id: 'clients',       label: 'Клиенты',       Icon: AddressBook,   permission: 'bookings' },
   { id: 'services',      label: 'Услуги',        Icon: Scissors,      permission: 'services' },
   { id: 'masters',       label: 'Мастера',       Icon: UsersThree,    permission: 'masters' },
   { id: 'vacancies',     label: 'Вакансии',      Icon: Briefcase,     permission: 'vacancies' },
@@ -255,6 +257,7 @@ export default function AdminPanel({ user, onLogout }: AdminPanelProps) {
               transition={{ duration: 0.25, ease: EASE_OUT }}
             >
               {activeTab === 'bookings'      && <AdminBookings />}
+              {activeTab === 'clients'       && <AdminClients />}
               {activeTab === 'services'      && <AdminServices />}
               {activeTab === 'masters'       && <AdminMasters />}
               {activeTab === 'vacancies'     && <AdminVacancies />}
