@@ -285,6 +285,10 @@ export async function createBooking(b: Omit<Booking, 'id' | 'createdAt'>): Promi
   return http<Booking>('/api/bookings', { method: 'POST', body: JSON.stringify(b) })
 }
 
+export async function updateBooking(id: string, b: Omit<Booking, 'id' | 'createdAt'>): Promise<Booking> {
+  return http<Booking>(`/api/bookings/${id}`, { method: 'PUT', body: JSON.stringify(b) })
+}
+
 export async function updateBookingStatus(id: string, status: Booking['status']): Promise<void> {
   await http<void>(`/api/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
 }
@@ -426,6 +430,7 @@ export async function getTimeSlots(
   services: Service[],
   date: Date,
   variantId?: string | null,
+  excludeBookingId?: string | null,
 ): Promise<TimeSlot[]> {
   const svc = services.find(s => s.id === serviceId)
   const variant = variantId ? svc?.variants?.find(v => v.id === variantId) : undefined
@@ -438,5 +443,6 @@ export async function getTimeSlots(
   })
   if (masterId) params.set('masterId', masterId)
   if (variantId) params.set('variantId', variantId)
+  if (excludeBookingId) params.set('excludeBookingId', excludeBookingId)
   return http<TimeSlot[]>(`/api/availability/slots?${params}`)
 }

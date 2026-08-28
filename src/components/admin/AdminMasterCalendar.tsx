@@ -20,7 +20,13 @@ function buildCalendarGrid(year: number, month: number): (number | null)[] {
 
 function pad(n: number) { return String(n).padStart(2, '0') }
 
-export default function AdminMasterCalendar() {
+export default function AdminMasterCalendar({
+  onEdit,
+  onRepeat,
+}: {
+  onEdit?: (booking: Booking) => void
+  onRepeat?: (booking: Booking) => void
+}) {
   const { masters, bookings, updateBookingStatus, updateBookingMaster, deleteBooking } = useData()
   const today = new Date()
 
@@ -203,7 +209,8 @@ export default function AdminMasterCalendar() {
                       <BookingRow key={b.id} booking={b} hideDate
                         updatingId={updatingId} deletingId={deletingId}
                         onStatusChange={handleStatusChange} onDelete={handleDelete}
-                        masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
+                        masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId}
+                        onEdit={onEdit} onRepeat={onRepeat} />
                     ))}
                   </AnimatePresence>
                 </div>

@@ -76,6 +76,7 @@ interface ContextValue {
   deleteMaster: (id: string) => Promise<void>
 
   addBooking:           (b: Omit<Booking, 'id' | 'createdAt'>) => Promise<void>
+  updateBooking:        (id: string, b: Omit<Booking, 'id' | 'createdAt'>) => Promise<void>
   updateBookingStatus:  (id: string, status: Booking['status']) => Promise<void>
   updateBookingMaster:  (id: string, masterId: string | null) => Promise<void>
   deleteBooking:        (id: string) => Promise<void>
@@ -270,6 +271,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateBooking = async (id: string, b: Omit<Booking, 'id' | 'createdAt'>) => {
+    if (isDb) {
+      const updated = await api.updateBooking(id, b)
+      setBookings(prev => prev.map(x => x.id === id ? updated : x))
+    } else {
+      setBookings(prev => {
+        const n = prev.map(x => x.id === id ? { ...x, ...b } : x)
+        saveLS('bookings', n)
+        return n
+      })
+    }
+  }
+
   const updateBookingStatus = async (id: string, status: Booking['status']) => {
     if (isDb) {
       await api.updateBookingStatus(id, status)
@@ -373,7 +387,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       services, masters, bookings, vacancies, testimonials, content, loading, newBookingsCount, isDb, dbError, dbOk,
       addService, updateService, deleteService,
       addMaster, updateMaster, deleteMaster,
-      addBooking, updateBookingStatus, updateBookingMaster, deleteBooking,
+      addBooking, updateBooking, updateBookingStatus, updateBookingMaster, deleteBooking,
       addVacancy, updateVacancy, deleteVacancy,
       addTestimonial, updateTestimonial, deleteTestimonial,
       setContent, reload, refreshBookings,

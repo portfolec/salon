@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { Booking } from '../../context/DataContext'
 import type { BookingSource } from '../../data'
-import { Phone, User, UserCircle, CheckCircle, XCircle, Scissors, Trash, PencilSimple } from '@phosphor-icons/react'
+import { Phone, User, UserCircle, CheckCircle, XCircle, Scissors, Trash, PencilSimple, Copy } from '@phosphor-icons/react'
 
 export const STATUS_LABELS: Record<Booking['status'], string> = {
   new: 'Новая',
@@ -56,11 +56,13 @@ interface BookingRowProps {
   masters?: { id: string; name: string }[]
   onChangeMaster?: (id: string, masterId: string | null) => void
   changingMasterId?: string | null
+  onEdit?: (booking: Booking) => void
+  onRepeat?: (booking: Booking) => void
 }
 
 export function BookingRow({
   booking, updatingId, deletingId, onStatusChange, onDelete, hideDate,
-  masters, onChangeMaster, changingMasterId,
+  masters, onChangeMaster, changingMasterId, onEdit, onRepeat,
 }: BookingRowProps) {
   const [editingMaster, setEditingMaster] = useState(false)
 
@@ -154,7 +156,19 @@ export function BookingRow({
           )}
         </div>
 
-        <div className="flex flex-row sm:flex-col gap-2 p-4 sm:p-5 sm:pl-4 sm:w-40 shrink-0 sm:border-l border-t sm:border-t-0 border-zinc-700 bg-zinc-800/80">
+        <div className="flex flex-row sm:flex-col gap-2 p-4 sm:p-5 sm:pl-4 sm:w-44 shrink-0 sm:border-l border-t sm:border-t-0 border-zinc-700 bg-zinc-800/80">
+          {onEdit && booking.status !== 'cancelled' && (
+            <button onClick={() => onEdit(booking)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-700 text-white text-xs font-medium rounded-sm hover:bg-zinc-600 transition-colors">
+              <PencilSimple size={14} />Изменить
+            </button>
+          )}
+          {onRepeat && (
+            <button onClick={() => onRepeat(booking)}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-zinc-700 text-white text-xs font-medium rounded-sm hover:bg-zinc-600 transition-colors">
+              <Copy size={14} />Ещё запись
+            </button>
+          )}
           {booking.status === 'new' && (
             <button onClick={() => onStatusChange(booking.id, 'confirmed')}
               disabled={updatingId === booking.id}

@@ -45,14 +45,33 @@ function formatDayHeading(date: string) {
   })
 }
 
+const EMPTY_FORM = {
+  serviceId: '',
+  variantName: '',
+  masterId: '',
+  date: '',
+  time: '',
+  name: '',
+  phone: '',
+  comment: '',
+  source: 'phone' as BookingSource,
+}
+
+function stripChannelPrefix(comment: string) {
+  return comment.replace(/^\[[^\]]+\]\s*/, '').trim()
+}
+
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminBookings() {
-  const { bookings, updateBookingStatus, updateBookingMaster, deleteBooking, addBooking, services, masters } = useData()
+  const { bookings, updateBookingStatus, updateBookingMaster, updateBooking, deleteBooking, addBooking, services, masters } = useData()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [filter, setFilter] = useState<Booking['status'] | 'all'>('all')
   const [filterDate, setFilterDate] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [formNotice, setFormNotice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -105,16 +124,7 @@ export default function AdminBookings() {
       setDeletingId(null)
     }
   }
-  const [form, setForm] = useState({
-    serviceId: '',
-    masterId: '',
-    date: '',
-    time: '',
-    name: '',
-    phone: '',
-    comment: '',
-    source: 'phone' as BookingSource,
-  })
+  const [form, setForm] = useState(EMPTY_FORM)
 
   const bookingsOnDate = useMemo(
     () => filterDate ? bookings.filter(b => b.date === filterDate) : bookings,
@@ -152,40 +162,78 @@ export default function AdminBookings() {
   }
 
   const resetForm = () => {
-    setForm({
-      serviceId: '',
-      masterId: '',
-      date: '',
-      time: '',
-      name: '',
-      phone: '',
-      comment: '',
-      source: 'phone',
-    })
+    setForm(EMPTY_FORM)
+    setEditingId(null)
+    setFormError(null)
+    setFormNotice(null)
     setAvailDays(new Set())
     setTimeSlots([])
   }
+
+  const openForm = () => {
+    setShowForm(true)
+    window.setTimeout(() => {
+      document.getElementById('admin-booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
+
+  const fillFromBooking = (b: Booking, { keepSlot }: { keepSlot: boolean }) => {
+    const date = String(b.date).slice(0, 10)
+    setForm({
+      serviceId: b.serviceId || services.find(s => s.name === b.service)?.id || '',
+      variantName: b.variantName ?? '',
+      masterId: b.masterId ?? '',
+      date: keepSlot ? date : '',
+      time: keepSlot ? String(b.time).slice(0, 5) : '',
+      name: b.name,
+      phone: b.phone,
+      comment: stripChannelPrefix(b.comment ?? ''),
+      source: b.source && b.source !== 'website' ? b.source : 'phone',
+    })
+    if (keepSlot && date) {
+      const [y, m] = date.split('-').map(Number)
+      if (y && m) { setCalYear(y); setCalMonth(m - 1) }
+    }
+    setFormError(null)
+    setShowForm(true)
+    openForm()
+  }
+
+  const handleEdit = (b: Booking) => {
+    setEditingId(b.id)
+    setFormNotice(null)
+    fillFromBooking(b, { keepSlot: true })
+  }
+
+  const handleRepeat = (b: Booking) => {
+    setEditingId(null)
+    setFormNotice('Данные клиента скопированы — выберите новую дату и время')
+    fillFromBooking(b, { keepSlot: false })
+  }
+
+  const selectedService = services.find(s => s.id === form.serviceId)
+  const selectedVariant = selectedService?.variants?.find(v => v.name === form.variantName)
 
   // Load which days have free slots for the chosen service/master.
   useEffect(() => {
     if (!form.serviceId) { setAvailDays(new Set()); return }
     setDaysLoading(true)
-    api.getAvailableDays(form.masterId || null, form.serviceId, masters, calYear, calMonth)
+    api.getAvailableDays(form.masterId || null, form.serviceId, masters, calYear, calMonth, selectedVariant?.id)
       .then(setAvailDays)
       .catch(() => setAvailDays(new Set()))
       .finally(() => setDaysLoading(false))
-  }, [form.serviceId, form.masterId, calYear, calMonth, masters])
+  }, [form.serviceId, form.masterId, form.variantName, calYear, calMonth, masters, selectedVariant?.id])
 
   // Load free time slots for the chosen day.
   useEffect(() => {
     if (!form.serviceId || !form.date) { setTimeSlots([]); return }
     setSlotsLoading(true)
     const dateObj = new Date(`${form.date}T00:00:00`)
-    api.getTimeSlots(form.masterId || null, form.serviceId, masters, services, dateObj)
+    api.getTimeSlots(form.masterId || null, form.serviceId, masters, services, dateObj, selectedVariant?.id, editingId)
       .then(setTimeSlots)
       .catch(() => setTimeSlots([]))
       .finally(() => setSlotsLoading(false))
-  }, [form.serviceId, form.masterId, form.date, masters, services])
+  }, [form.serviceId, form.masterId, form.date, form.variantName, masters, services, selectedVariant?.id, editingId])
 
   const navFormMonth = (dir: number) => {
     let m = calMonth + dir
@@ -205,22 +253,25 @@ export default function AdminBookings() {
     setListYear(y)
   }
 
-  const handleCreate = async () => {
-    if (!form.serviceId || !form.date || !form.time || !form.name.trim() || form.phone.replace(/\D/g, '').length < 10) {
+  const handleSave = async () => {
+    if (!form.serviceId || !form.date || !form.time || !form.name.trim()) {
+      setFormError('Нужны услуга, имя клиента, дата и время. Телефон можно не заполнять.')
       return
     }
+    setFormError(null)
     setSaving(true)
     try {
       const svc = services.find(s => s.id === form.serviceId)
       const mstr = masters.find(m => m.id === form.masterId)
       const channelNote = `[${SOURCE_LABELS[form.source]}]`
       const comment = form.comment.trim()
-        ? `${channelNote} ${form.comment.trim()}`
-        : channelNote
+        ? (editingId ? form.comment.trim() : `${channelNote} ${form.comment.trim()}`)
+        : (editingId ? form.comment.trim() : channelNote)
 
-      await addBooking({
+      const payload = {
         service: svc?.name ?? '',
         serviceId: form.serviceId,
+        variantName: form.variantName || null,
         master: mstr?.name ?? null,
         masterId: form.masterId || undefined,
         date: form.date,
@@ -228,14 +279,19 @@ export default function AdminBookings() {
         name: form.name.trim(),
         phone: form.phone.trim(),
         comment,
-        status: 'confirmed',
+        status: (editingId
+          ? (bookings.find(b => b.id === editingId)?.status ?? 'confirmed')
+          : 'confirmed') as Booking['status'],
         source: form.source,
-      })
+      }
+
+      if (editingId) await updateBooking(editingId, payload)
+      else await addBooking(payload)
       setShowForm(false)
       resetForm()
     } catch (e) {
-      console.error('[AdminBookings] create failed', e)
-      alert('Не удалось сохранить запись. Проверьте подключение и попробуйте снова.')
+      console.error('[AdminBookings] save failed', e)
+      setFormError(e instanceof Error ? e.message : 'Не удалось сохранить запись.')
     } finally {
       setSaving(false)
     }
@@ -254,7 +310,10 @@ export default function AdminBookings() {
         </div>
         <motion.button
           whileTap={{ scale: 0.97 }}
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => {
+            if (showForm) { setShowForm(false); resetForm() }
+            else { resetForm(); openForm() }
+          }}
           className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-accent)] text-white text-sm font-medium rounded-sm hover:bg-[var(--color-accent-light)] transition-colors shrink-0"
         >
           <motion.span animate={{ rotate: showForm ? 45 : 0 }} transition={{ duration: 0.2 }}>
@@ -284,9 +343,14 @@ export default function AdminBookings() {
 
       <AnimatePresence initial={false}>
         {showForm && (
-        <motion.div key="add-booking-form" style={{ overflow: 'hidden' }} {...formMotion}
+        <motion.div id="admin-booking-form" key="add-booking-form" style={{ overflow: 'hidden' }} {...formMotion}
           className="mb-8 bg-zinc-800 border border-zinc-700 rounded-sm p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Новая запись в график</h3>
+          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">
+            {editingId ? 'Редактирование записи' : 'Новая запись в график'}
+          </h3>
+          {formNotice && (
+            <p className="text-sm text-emerald-300 bg-emerald-950 border border-emerald-800 rounded-sm px-3 py-2">{formNotice}</p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Канал</label>
@@ -304,7 +368,7 @@ export default function AdminBookings() {
               <label className="block text-xs text-zinc-400 mb-1.5">Услуга</label>
               <select
                 value={form.serviceId}
-                onChange={e => setForm(f => ({ ...f, serviceId: e.target.value, masterId: '', date: '', time: '' }))}
+                onChange={e => setForm(f => ({ ...f, serviceId: e.target.value, variantName: '', masterId: '', date: '', time: '' }))}
                 className={inputCls}
               >
                 <option value="">Выберите услугу</option>
@@ -313,6 +377,21 @@ export default function AdminBookings() {
                 ))}
               </select>
             </div>
+            {!!selectedService?.variants?.length && (
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Вид услуги</label>
+                <select
+                  value={form.variantName}
+                  onChange={e => setForm(f => ({ ...f, variantName: e.target.value, date: '', time: '' }))}
+                  className={inputCls}
+                >
+                  <option value="">Не указан</option>
+                  {selectedService.variants!.map(v => (
+                    <option key={v.id} value={v.name}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-zinc-400 mb-1.5">Мастер</label>
               <select
@@ -333,10 +412,10 @@ export default function AdminBookings() {
                 placeholder="Имя" className={inputCls} />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Телефон</label>
+              <label className="block text-xs text-zinc-400 mb-1.5">Телефон <span className="text-zinc-600 normal-case tracking-normal">(необязательно)</span></label>
               <input value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                placeholder="+7 ..." className={inputCls} />
+                placeholder="Можно оставить пустым" className={inputCls} />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs text-zinc-400 mb-1.5">Комментарий</label>
@@ -370,7 +449,7 @@ export default function AdminBookings() {
                   {buildCalendarGrid(calYear, calMonth).map((day, idx) => {
                     if (!day) return <div key={idx} />
                     const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(day)}`
-                    const isAvail = availDays.has(day)
+                    const isAvail = availDays.has(day) || form.date === dateStr
                     const isSel = form.date === dateStr
                     return (
                       <button type="button" key={idx} disabled={!isAvail}
@@ -392,21 +471,35 @@ export default function AdminBookings() {
                           <div key={i} className="h-8 rounded-sm bg-zinc-800 animate-pulse" />
                         ))}
                       </div>
-                    ) : timeSlots.length === 0 ? (
-                      <p className="text-xs text-zinc-600 py-1">Нет свободных слотов на этот день</p>
                     ) : (
-                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
-                        {timeSlots.map(slot => (
-                          <button type="button" key={slot.time} disabled={!slot.available}
-                            onClick={() => slot.available && setForm(f => ({ ...f, time: slot.time }))}
-                            className={`py-1.5 text-xs rounded-sm border transition-colors duration-150
-                              ${form.time === slot.time ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white font-medium' : ''}
-                              ${slot.available && form.time !== slot.time ? 'border-zinc-700 text-zinc-300 hover:border-zinc-500' : ''}
-                              ${!slot.available ? 'border-zinc-800 text-zinc-700 line-through cursor-not-allowed' : ''}`}>
-                            {slot.time}
-                          </button>
-                        ))}
-                      </div>
+                      (() => {
+                        const current = form.time.slice(0, 5)
+                        const slots = timeSlots.map(s => ({
+                          ...s,
+                          time: s.time.slice(0, 5),
+                          available: s.available || s.time.slice(0, 5) === current,
+                        }))
+                        if (current && !slots.some(s => s.time === current)) {
+                          slots.unshift({ time: current, available: true })
+                        }
+                        if (slots.length === 0) {
+                          return <p className="text-xs text-zinc-600 py-1">Нет свободных слотов на этот день</p>
+                        }
+                        return (
+                          <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                            {slots.map(slot => (
+                              <button type="button" key={slot.time} disabled={!slot.available}
+                                onClick={() => slot.available && setForm(f => ({ ...f, time: slot.time }))}
+                                className={`py-1.5 text-xs rounded-sm border transition-colors duration-150
+                                  ${form.time === slot.time ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white font-medium' : ''}
+                                  ${slot.available && form.time !== slot.time ? 'border-zinc-700 text-zinc-300 hover:border-zinc-500' : ''}
+                                  ${!slot.available ? 'border-zinc-800 text-zinc-700 line-through cursor-not-allowed' : ''}`}>
+                                {slot.time}
+                              </button>
+                            ))}
+                          </div>
+                        )
+                      })()
                     )}
                   </div>
                 )}
@@ -414,19 +507,22 @@ export default function AdminBookings() {
             )}
           </div>
 
+          {formError && (
+            <p className="text-sm text-red-300">{formError}</p>
+          )}
           <button
-            onClick={handleCreate}
-            disabled={saving || !form.date || !form.time}
+            onClick={handleSave}
+            disabled={saving}
             className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-sm hover:bg-emerald-500 transition-colors disabled:opacity-50"
           >
-            {saving ? 'Сохранение...' : 'Сохранить в график'}
+            {saving ? 'Сохранение...' : editingId ? 'Сохранить изменения' : 'Сохранить в график'}
           </button>
         </motion.div>
         )}
       </AnimatePresence>
 
       {view === 'calendar' ? (
-        <AdminMasterCalendar />
+        <AdminMasterCalendar onEdit={handleEdit} onRepeat={handleRepeat} />
       ) : (
         <>
           <div className="grid lg:grid-cols-[280px_1fr] gap-6 mb-6">
@@ -532,7 +628,8 @@ export default function AdminBookings() {
                             hideDate
                             updatingId={updatingId} deletingId={deletingId}
                             onStatusChange={handleStatusChange} onDelete={handleDelete}
-                            masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId} />
+                            masters={masters} onChangeMaster={handleChangeMaster} changingMasterId={changingMasterId}
+                            onEdit={handleEdit} onRepeat={handleRepeat} />
                         ))}
                       </div>
                     </section>
