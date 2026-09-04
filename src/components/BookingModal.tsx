@@ -56,6 +56,7 @@ interface State {
   name: string
   phone: string
   comment: string
+  agreed: boolean
   calYear: number
   calMonth: number
   submitted: boolean
@@ -74,6 +75,7 @@ type Action =
   | { type: 'REMOVE_FROM_CART'; id: string }
   | { type: 'START_ANOTHER' }
   | { type: 'SET_FIELD'; field: 'name' | 'phone' | 'comment'; value: string }
+  | { type: 'SET_AGREED'; value: boolean }
   | { type: 'SET_ERRORS'; errors: Record<string, string> }
   | { type: 'NAV_MONTH'; dir: 1 | -1 }
   | { type: 'GO_STEP'; step: Step }
@@ -124,6 +126,7 @@ function init(initialServiceId?: string, initialMasterId?: string, initialHasVar
     name: '',
     phone: '',
     comment: '',
+    agreed: false,
     calYear: today.getFullYear(),
     calMonth: today.getMonth(),
     submitted: false,
@@ -169,6 +172,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, draft: emptyDraft(), preselectedMasterId: null, initialServiceLocked: false, step: 'service', errors: {} }
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value, errors: { ...state.errors, [action.field]: '' } }
+    case 'SET_AGREED':
+      return { ...state, agreed: action.value, errors: { ...state.errors, agreed: '' } }
     case 'SET_ERRORS':
       return { ...state, errors: action.errors }
     case 'NAV_MONTH': {
@@ -349,10 +354,15 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
     if (!state.name.trim()) errors.name = 'Введите имя'
     if (state.phone.replace(/\D/g, '').length < 10) errors.phone = 'Введите корректный номер'
     if (!state.cart.length) errors.cart = 'Добавьте хотя бы одну услугу'
+    if (!state.agreed) errors.agreed = 'Нужно согласие с пользовательским соглашением'
     return errors
   }
 
   async function handleSubmit() {
+    if (!state.agreed) {
+      dispatch({ type: 'SET_ERRORS', errors: { agreed: 'Нужно согласие с пользовательским соглашением' } })
+      return
+    }
     dispatch({ type: 'SUBMIT_START' })
     try {
       for (const item of state.cart) {
@@ -750,6 +760,23 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                             className="w-full px-4 py-3 text-sm border border-[rgba(26,26,26,0.2)] bg-white text-[var(--color-ink)] placeholder:text-[var(--color-ink-tertiary)] outline-none focus:border-[var(--color-ink)] transition-colors resize-none"
                             style={{ borderRadius: 'var(--radius-input)' }} />
                         </div>
+                        <label className="flex items-start gap-3 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={state.agreed}
+                            onChange={e => dispatch({ type: 'SET_AGREED', value: e.target.checked })}
+                            className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--color-accent)]"
+                          />
+                          <span className="text-[13px] text-[var(--color-ink-secondary)] leading-relaxed">
+                            Я соглашаюсь с{' '}
+                            <a href="#agreement" target="_blank" rel="noopener noreferrer"
+                              className="underline hover:text-[var(--color-ink)]"
+                              onClick={e => e.stopPropagation()}>
+                              пользовательским соглашением
+                            </a>
+                          </span>
+                        </label>
+                        {state.errors.agreed && <p className="text-xs text-red-500">{state.errors.agreed}</p>}
                         <button
                           onClick={() => {
                             const errors = validateDetails()
@@ -760,12 +787,6 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                           style={{ borderRadius: 'var(--radius-btn)' }}>
                           Проверить запись <ArrowRight size={16} />
                         </button>
-                        <p className="text-[11px] text-[var(--color-ink-tertiary)] text-center leading-relaxed">
-                          Отправляя заявку, вы соглашаетесь с{' '}
-                          <a href="#agreement" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-ink)]">
-                            пользовательским соглашением
-                          </a>
-                        </p>
                       </div>
                     </div>
                   )}
@@ -812,6 +833,9 @@ export default function BookingModal({ open, onClose, initialServiceId, initialM
                           style={{ borderRadius: 'var(--radius-input)' }}>
                           {state.submitError}
                         </motion.p>
+                      )}
+                      {state.errors.agreed && (
+                        <p className="mb-3 text-xs text-red-500">{state.errors.agreed}</p>
                       )}
                       <button onClick={handleSubmit} disabled={state.submitting}
                         className="w-full py-3.5 bg-[var(--color-accent)] text-white text-sm font-medium tracking-wide flex items-center justify-center gap-2 hover:bg-[var(--color-ink)] active:scale-[0.99] transition-all disabled:opacity-60"

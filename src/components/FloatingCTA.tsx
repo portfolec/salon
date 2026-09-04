@@ -5,21 +5,35 @@ import { CalendarBlank } from '@phosphor-icons/react'
 
 interface FloatingCTAProps {
   onBooking: () => void
+  hidden?: boolean
 }
 
-export default function FloatingCTA({ onBooking }: FloatingCTAProps) {
+export default function FloatingCTA({ onBooking, hidden }: FloatingCTAProps) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const handler = () => setVisible(window.scrollY > 400)
-    window.addEventListener('scroll', handler, { passive: true })
-    handler()
-    return () => window.removeEventListener('scroll', handler)
+    const update = () => {
+      const scrolled = window.scrollY > 400
+      const footer = document.querySelector('[data-site-footer]')
+      const footerOnScreen = footer
+        ? footer.getBoundingClientRect().top < window.innerHeight - 72
+        : false
+      setVisible(scrolled && !footerOnScreen)
+    }
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    update()
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
   }, [])
+
+  const show = visible && !hidden
 
   return (
     <AnimatePresence>
-      {visible && (
+      {show && (
         <motion.div
           className="fixed bottom-6 left-0 right-0 flex justify-center z-40 pointer-events-none md:hidden"
           initial={{ opacity: 0, y: 14 }}

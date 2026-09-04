@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useData, type SiteContent } from '../../context/DataContext'
 import { Check, ArrowCounterClockwise, ChartLine } from '@phosphor-icons/react'
+import { DEFAULT_USER_AGREEMENT } from '../../data/userAgreement'
 
 const inputCls = "w-full px-3 py-2.5 text-sm bg-zinc-900 border border-zinc-700 text-white placeholder:text-zinc-600 outline-none focus:border-[var(--color-accent)] rounded-sm transition-colors"
 
 export default function AdminContent() {
   const { content, setContent } = useData()
-  const [form, setForm] = useState<SiteContent>(content)
+  const [form, setForm] = useState<SiteContent>(() => ({
+    ...content,
+    userAgreement: content.userAgreement?.trim() || DEFAULT_USER_AGREEMENT,
+  }))
   const [saved, setSaved] = useState(false)
 
   const set = (field: keyof SiteContent, value: string) =>
@@ -101,6 +105,19 @@ export default function AdminContent() {
           </div>
         </div>
 
+        <div className="bg-zinc-800 border border-zinc-700 rounded-sm p-6">
+          <h3 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-2">Пользовательское соглашение</h3>
+          <p className="text-xs text-zinc-500 mb-4 leading-relaxed">
+            Текст страницы «Пользовательское соглашение». Пустая строка между абзацами. Заголовок раздела — отдельная строка вида «1. Название».
+          </p>
+          <textarea
+            value={form.userAgreement ?? ''}
+            onChange={e => set('userAgreement', e.target.value)}
+            rows={18}
+            className={inputCls + ' resize-y min-h-[16rem] font-mono text-[13px] leading-relaxed'}
+          />
+        </div>
+
         {/* Save */}
         <div className="flex gap-3">
           <button onClick={handleSave}
@@ -109,7 +126,10 @@ export default function AdminContent() {
             <Check size={16} weight="bold" />
             {saved ? 'Сохранено!' : 'Сохранить изменения'}
           </button>
-          <button onClick={() => setForm(content)}
+          <button onClick={() => setForm({
+            ...content,
+            userAgreement: content.userAgreement?.trim() || DEFAULT_USER_AGREEMENT,
+          })}
             className="flex items-center gap-2 px-4 py-3 bg-zinc-700 text-zinc-300 text-sm font-medium rounded-sm hover:bg-zinc-600 transition-colors">
             <ArrowCounterClockwise size={16} />Сбросить
           </button>

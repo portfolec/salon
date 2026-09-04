@@ -51,6 +51,7 @@ export interface SiteContent {
   emailjsTemplateId?: string
   emailjsPublicKey?: string
   notificationEmail?: string
+  userAgreement?: string
 }
 
 export type BookingSource = 'website' | 'phone' | 'telegram' | 'instagram' | 'admin' | 'other'

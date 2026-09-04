@@ -7,6 +7,7 @@ import { isApiConfigured } from '../lib/backend'
 import { getToken } from '../lib/auth'
 import * as api from '../lib/api'
 import type { Service, Master, SiteContent, Booking, Vacancy, Testimonial } from '../data'
+import { DEFAULT_USER_AGREEMENT } from '../data/userAgreement'
 import {
   services as defaultServices,
   masters  as defaultMasters,
@@ -33,6 +34,7 @@ const DEFAULT_CONTENT: SiteContent = {
   emailjsTemplateId: '',
   emailjsPublicKey: '',
   notificationEmail: '',
+  userAgreement: DEFAULT_USER_AGREEMENT,
 }
 
 // ─── localStorage fallback (when API is not configured) ──────────────────────

@@ -1,6 +1,7 @@
 import { API_BASE } from './backend'
 import { getToken, clearSession, type AdminUser } from './auth'
 import type { Service, Master, SiteContent, TimeSlot, Booking, Vacancy, Testimonial } from '../data'
+import { DEFAULT_USER_AGREEMENT } from '../data/userAgreement'
 
 // ─── fetch helper ────────────────────────────────────────────────────────────
 
@@ -352,6 +353,7 @@ const DEFAULT_CONTENT: SiteContent = {
   emailjsTemplateId: '',
   emailjsPublicKey: '',
   notificationEmail: '',
+  userAgreement: DEFAULT_USER_AGREEMENT,
 }
 
 export async function fetchContent(): Promise<SiteContent> {

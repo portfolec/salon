@@ -24,7 +24,7 @@ export default function Footer() {
   const { content } = useData()
 
   return (
-    <footer className="bg-[var(--color-ink)] text-white">
+    <footer className="bg-[var(--color-ink)] text-white" data-site-footer>
       {/* Main grid */}
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-16 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
@@ -119,7 +119,7 @@ export default function Footer() {
 
       {/* Bottom bar */}
       <div className="border-t border-[rgba(255,255,255,0.07)]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 py-5 pb-24 md:pb-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[rgba(255,255,255,0.25)]">
             &copy; {new Date().getFullYear()} Стильный Акцент. Все права защищены.
           </p>

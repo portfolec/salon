@@ -114,7 +114,7 @@ function SiteApp() {
         initialServiceId={preselectedService}
         initialMasterId={preselectedMaster}
       />
-      <FloatingCTA onBooking={() => handleOpenBooking()} />
+      <FloatingCTA onBooking={() => handleOpenBooking()} hidden={modalOpen} />
     </>
   )
 }
